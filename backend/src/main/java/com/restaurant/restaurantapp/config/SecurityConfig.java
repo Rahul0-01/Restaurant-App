@@ -90,8 +90,9 @@ public class SecurityConfig {
 
                         // --- Order Management (STAFF or ADMIN) ---
                         .requestMatchers(HttpMethod.POST, "/api/orders").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/orders/**/status").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/**").hasAnyRole("STAFF", "ADMIN") // Added /api/orders explicit GET
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/status").hasAnyRole("STAFF", "ADMIN") // <<< THIS IS THE CORRECTED LINE
+                        .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("STAFF", "ADMIN")
 
                         // --- Table Management ---
                         .requestMatchers(HttpMethod.POST, "/api/tables").hasRole("ADMIN")

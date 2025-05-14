@@ -5,6 +5,7 @@ import com.restaurant.restaurantapp.DTO.TableRequestDTO;
 import com.restaurant.restaurantapp.Exception.DuplicateResourceException;
 import com.restaurant.restaurantapp.Exception.InvalidRequestException;
 import com.restaurant.restaurantapp.Exception.ResourceNotFoundException;
+import com.restaurant.restaurantapp.Repository.OrderRepository;
 import com.restaurant.restaurantapp.model.RestaurantTable;
 import com.restaurant.restaurantapp.Repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class TableService {
 
     private static final Logger log = LoggerFactory.getLogger(TableService.class);
     private final RestaurantTableRepository tableRepository;
+    private final OrderRepository  orderRepository;
 
     @Transactional(readOnly = true)
     public Optional<TableDTO> findTableByQrCode(String qrCodeIdentifier) {
@@ -118,6 +120,20 @@ public class TableService {
 
         table.setTableNumber(requestDTO.getTableNumber());
         table.setStatus(requestDTO.getStatus()); // Add validation?
+
+        if (requestDTO.getCapacity() != null) { // Check if capacity was sent in the request
+            log.debug("Updating capacity for table ID {} to: {}", id, requestDTO.getCapacity());
+            table.setCapacity(requestDTO.getCapacity());
+        } else {
+            // Optional: If capacity is not in the DTO, do you want to set it to null on the entity?
+            // Or leave it as is? For partial updates, leaving it as is if not provided is common.
+            // If you want to allow setting it to null explicitly, the DTO might need to differentiate
+            // between "not provided" and "provided as null".
+            // For simplicity, if it's in the DTO (even if DTO's capacity is null), we update.
+            // If your TableRequestDTO's Integer capacity can be null, and you want to set the entity's capacity to null:
+            // table.setCapacity(requestDTO.getCapacity()); // This would work if DTO.capacity can be null
+            log.debug("Capacity not provided in update request for table ID {}. Current capacity: {}", id, table.getCapacity());
+        }
         if (newQrCode != null && !newQrCode.trim().isEmpty()) {
             table.setQrCodeIdentifier(newQrCode);
         } // else keep the existing one if not provided or empty
@@ -135,9 +151,13 @@ public class TableService {
         if (!tableRepository.existsById(id)) {
             throw new ResourceNotFoundException("Table not found with ID: " + id);
         }
-        // Consider implications: What about active orders at this table?
-        // Maybe prevent deletion if there are PENDING/PREPARING orders? For now, just delete.
-        tableRepository.deleteById(id);
+
+        // Check for associated orders
+        if (orderRepository.existsByRestaurantTableId(id)) { // Assuming you add this method to OrderRepository
+            throw new DataIntegrityViolationException("Cannot delete table: Table ID " + id + " has associated orders.");
+        }
+            tableRepository.deleteById(id);
+
     }
 
     // --- Mapper ---
@@ -151,7 +171,8 @@ public class TableService {
                 table.getId(),               // Long id
                 table.getTableNumber(),      // String tableNumber
                 table.getQrCodeIdentifier(), // String qrCodeIdentifier (use getter)
-                table.getStatus()            // String status (use getter)
+                table.getStatus(),// String status (use getter)
+                  table.getCapacity()
         );
     }
 }

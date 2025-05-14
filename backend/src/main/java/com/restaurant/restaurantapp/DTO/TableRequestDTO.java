@@ -7,6 +7,7 @@ import lombok.Data;
 public class TableRequestDTO {
     @NotBlank(message = "Table number cannot be blank")
     private String tableNumber;
+    private Integer capacity;
 
     // QR code might be generated automatically or provided
     private String qrCodeIdentifier;

@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.HashMap;
@@ -45,6 +46,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         body.put("message", ex.getMessage());
         body.put("path", request.getDescription(false).substring(4));
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Object> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex, WebRequest request) {
+        log.warn("Data integrity violation: {}", ex.getMessage()); // Log the original exception message
+
+        Map<String, Object> body = new HashMap<>(); // Using HashMap like your other methods
+        body.put("timestamp", System.currentTimeMillis());
+        body.put("status", HttpStatus.CONFLICT.value()); // 409 Conflict is appropriate
+        body.put("error", "Conflict");
+        // Use the specific message from the exception (e.g., the one you threw in your service)
+        body.put("message", ex.getMessage()); // This should be "Cannot delete table: Table ID X has associated orders."
+        body.put("path", request.getDescription(false).substring(4)); // Consistent with your other path handling
+
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)

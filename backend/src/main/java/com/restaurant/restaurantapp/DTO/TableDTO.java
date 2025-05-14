@@ -12,7 +12,8 @@ public class TableDTO {
     private Long id;
     private String tableNumber;
     private String qrCodeIdentifier; // ADDED - Usually needed, even if just for admin
-    private String status;           // ADDED - Status is important info
+    private String status;
+    private Integer capacity;
     // Keep capacity out for now unless the client specifically needs it
 
 }

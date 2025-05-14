@@ -76,5 +76,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT SUM(o.totalPrice) FROM Order o WHERE o.restaurantTable.id = :tableId AND o.status = com.restaurant.restaurantapp.model.OrderStatus.COMPLETED")
     BigDecimal findTotalCompletedOrderPriceForTable(@Param("tableId") Long tableId); // Returns BigDecimal, not paginated
 
+    boolean existsByRestaurantTableId(Long tableId);
 
 }
