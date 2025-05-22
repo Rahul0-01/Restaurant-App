@@ -66,7 +66,7 @@ function AdminManageTables() {
   const handleFormSubmit = async (formData) => {
     setError(null);
     try {
-      const payload = { ...formData }; // formData from TableForm already has capacity as number/null
+      const payload = { ...formData };
       if (editingTable?.id) {
         await apiClient.put(`/tables/${editingTable.id}`, payload);
         alert('Table updated successfully!');
@@ -133,7 +133,7 @@ function AdminManageTables() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{table.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{table.tableNumber}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{table.status}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{table.capacity || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{table.capacity === null || table.capacity === undefined ? 'N/A' : table.capacity}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{table.qrCodeIdentifier || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button 

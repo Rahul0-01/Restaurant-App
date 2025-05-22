@@ -12,6 +12,7 @@ public class CategoryDTO {
 
     private Long id;
     private String name;
+    private String description;
     // Add other fields from Category entity if needed by the frontend, e.g., description
 
 

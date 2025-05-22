@@ -29,7 +29,7 @@ function TableForm({ initialData, onSubmitForm, onCancel }) {
     e.preventDefault();
     const submitData = {
       ...formData,
-      capacity: formData.capacity ? parseInt(formData.capacity, 10) : null
+      capacity: formData.capacity === '' ? null : parseInt(formData.capacity, 10)
     };
     onSubmitForm(submitData);
   };

@@ -8,6 +8,7 @@ import { useAuth } from './context/AuthContext';
 import AdminManageCategories from './components/AdminManageCategories';
 import AdminManageDishes from './components/AdminManageDishes';
 import AdminManageTables from './components/AdminManageTables';
+import OrderManagementPage from './components/OrderManagementPage';
 import { Link } from 'react-router-dom';
 import './App.css';
 
@@ -28,7 +29,9 @@ function AdminDashboardPlaceholder() {
           <li>
             <Link to="/admin/tables">Manage Tables</Link>
           </li>
-          {/* Add other admin links here later */}
+          <li>
+            <Link to="/admin/orders">Manage Orders</Link>
+          </li>
         </ul>
       </nav>
     </div>
@@ -67,6 +70,7 @@ function App() {
           <Route path="/admin/categories" element={<AdminManageCategories />} />
           <Route path="/admin/dishes" element={<AdminManageDishes />} />
           <Route path="/admin/tables" element={<AdminManageTables />} />
+          <Route path="/admin/orders" element={<OrderManagementPage />} />
           {/* Example for later: <Route path="/admin/categories" element={<AdminCategoriesPage />} /> */}
           {/* Example for later: <Route path="/admin/dishes" element={<AdminDishesPage />} /> */}
         </Route>

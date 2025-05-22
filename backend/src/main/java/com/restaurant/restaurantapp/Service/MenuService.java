@@ -66,6 +66,7 @@ public class MenuService {
         log.info("Creating new category with name: {}", categoryDTO.getName());
         Category category = new Category();
         category.setName(categoryDTO.getName());
+        category.setDescription(categoryDTO.getDescription());
         try {
             Category savedCategory = categoryRepository.save(category);
             return mapCategoryToDTO(savedCategory);
@@ -87,6 +88,7 @@ public class MenuService {
         }
 
         category.setName(categoryDTO.getName());
+        category.setDescription(categoryDTO.getDescription());
         try {
             Category updatedCategory = categoryRepository.save(category);
             return mapCategoryToDTO(updatedCategory);
@@ -189,7 +191,7 @@ public class MenuService {
 
     // --- Mappers ---
     private CategoryDTO mapCategoryToDTO(Category category) {
-        return new CategoryDTO(category.getId(), category.getName());
+        return new CategoryDTO(category.getId(), category.getName(),category.getDescription());
     }
 
     private DishDTO mapDishToDTO(Dish dish) {

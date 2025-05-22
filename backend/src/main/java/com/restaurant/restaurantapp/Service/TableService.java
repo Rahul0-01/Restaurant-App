@@ -76,7 +76,7 @@ public class TableService {
         RestaurantTable table = new RestaurantTable();
         table.setTableNumber(requestDTO.getTableNumber());
         table.setStatus(requestDTO.getStatus()); // Add validation for allowed statuses if needed
-
+        table.setCapacity(requestDTO.getCapacity());
         // Handle QR Code Generation/Assignment
         String qrCode = requestDTO.getQrCodeIdentifier();
         if (qrCode == null || qrCode.trim().isEmpty()) {
