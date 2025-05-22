@@ -1,6 +1,8 @@
 // src/App.jsx
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AdminRoute from './components/AdminRoute'; 
@@ -47,6 +49,18 @@ function App() {
 
   return (
     <div className="App">
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <Routes>
         {/* Public Routes */}
         <Route

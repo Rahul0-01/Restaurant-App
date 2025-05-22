@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TableForm from './TableForm';
 import apiClient from '../services/apiService';
+import { toast } from 'react-toastify';
 
 function AdminManageTables() {
   const [tables, setTables] = useState([]);
@@ -46,44 +47,36 @@ function AdminManageTables() {
     setEditingTable(null);
   };
 
-  const handleDeleteTable = async (tableId, tableNumber) => {
-    if (window.confirm(`Are you sure you want to delete Table ${tableNumber}? This action cannot be undone.`)) {
+  const handleDeleteTable = async (tableId) => {
+    if (window.confirm('Are you sure you want to delete this table?')) {
       try {
         await apiClient.delete(`/tables/${tableId}`);
-        alert(`Table ${tableNumber} deleted successfully!`);
+        toast.success('Table deleted successfully!');
         fetchTables();
       } catch (err) {
         console.error('Failed to delete table:', err);
-        const errorMessage = err.response?.data?.message || 
-                           err.message || 
-                           'Failed to delete table. It might be in use or an error occurred.';
-        setError(errorMessage);
-        alert(`Error: ${errorMessage}`);
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to delete table.';
+        toast.error(errorMessage);
       }
     }
   };
 
   const handleFormSubmit = async (formData) => {
-    setError(null);
     try {
-      const payload = { ...formData };
-      if (editingTable?.id) {
-        await apiClient.put(`/tables/${editingTable.id}`, payload);
-        alert('Table updated successfully!');
+      if (editingTable) {
+        await apiClient.put(`/tables/${editingTable.id}`, formData);
+        toast.success('Table updated successfully!');
       } else {
-        await apiClient.post('/tables', payload);
-        alert('Table created successfully!');
+        await apiClient.post('/tables', formData);
+        toast.success('Table created successfully!');
       }
       setIsFormVisible(false);
       setEditingTable(null);
       fetchTables();
     } catch (err) {
       console.error('Failed to save table:', err);
-      const errorMessage = err.response?.data?.message || 
-                          err.message || 
-                          'Failed to save table. Please try again.';
-      setError(errorMessage);
-      alert(`Error: ${errorMessage}`);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to save table.';
+      toast.error(errorMessage);
     }
   };
 
@@ -144,7 +137,7 @@ function AdminManageTables() {
                       Edit
                     </button>
                     <button 
-                      onClick={() => handleDeleteTable(table.id, table.tableNumber)}
+                      onClick={() => handleDeleteTable(table.id)}
                       disabled={isFormVisible}
                       className="text-red-600 hover:text-red-900 disabled:opacity-50"
                     >

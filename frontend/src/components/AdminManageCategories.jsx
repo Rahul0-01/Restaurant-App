@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '../services/apiService'; 
+import apiClient from '../services/apiService';
+import { toast } from 'react-toastify';
 import CategoryForm from './CategoryForm';
 
 function AdminManageCategories() {
@@ -8,6 +9,7 @@ function AdminManageCategories() {
   const [error, setError] = useState(null);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [formData, setFormData] = useState({ name: '', description: '' });
 
   // Function to fetch categories
   const fetchCategories = async () => {
@@ -22,7 +24,9 @@ function AdminManageCategories() {
       }
     } catch (err) {
       console.error('Failed to fetch categories for admin:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to load categories.');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load categories.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -34,158 +38,162 @@ function AdminManageCategories() {
 
   const handleAddCategory = () => {
     setEditingCategory(null);
+    setFormData({ name: '', description: '' });
     setIsFormVisible(true);
   };
 
-  const handleEditCategory = (categoryId) => {
-    const categoryToEdit = categories.find(cat => cat.id === categoryId);
-    if (categoryToEdit) {
-      setEditingCategory(categoryToEdit);
-      setIsFormVisible(true);
-    }
+  const handleEditCategory = (category) => {
+    setEditingCategory(category);
+    setFormData({ name: category.name, description: category.description || '' });
+    setIsFormVisible(true);
   };
 
-  const handleFormSubmit = async (formData) => { // Make it async
-    setIsLoading(true); // Optional: Show a general loading state for the page
-    setError(null);     // Clear previous errors
-  
+  const handleCancelForm = () => {
+    setIsFormVisible(false);
+    setEditingCategory(null);
+    setFormData({ name: '', description: '' });
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.warning('Category name is required.');
+      return;
+    }
+
     try {
       if (editingCategory) {
-        // EDIT MODE (PUT request)
-        console.log('Attempting to UPDATE category ID:', editingCategory.id, 'with data:', formData);
-        // Your DishRequestDTO for backend might be just { name, description }
-        // Ensure formData matches what your backend PUT endpoint for categories expects.
-        // Assuming your backend /api/menu/categories/{id} expects an object with name and description.
         await apiClient.put(`/menu/categories/${editingCategory.id}`, formData);
-        alert('Category updated successfully!'); // Simple feedback
+        toast.success('Category updated successfully!');
       } else {
-        // ADD MODE (POST request)
-        console.log('Attempting to ADD new category with data:', formData);
-        // Ensure formData matches what your backend POST endpoint for categories expects.
-        // Usually { name, description } for a new category.
         await apiClient.post('/menu/categories', formData);
-        alert('Category added successfully!'); // Simple feedback
+        toast.success('Category created successfully!');
       }
       setIsFormVisible(false);
       setEditingCategory(null);
-      fetchCategories(); // IMPORTANT: Re-fetch categories to see the changes
+      setFormData({ name: '', description: '' });
+      fetchCategories();
     } catch (err) {
       console.error('Failed to save category:', err);
-      // err.response.data might contain specific validation messages from backend
-      const errorMessage = err.response?.data?.message || // For custom error DTOs
-                           (err.response?.data?.errors ? JSON.stringify(err.response.data.errors) : null) || // For Spring Validation errors
-                           err.message ||
-                           'Failed to save category. Please try again.';
-      setError(errorMessage); // Display error to the user
-      // Keep the form visible if there was an error so the user can correct it
-      // setIsFormVisible(false); // DON'T hide form on error
-    } finally {
-      // If you set a global isLoading for the page, set it back here
-      // setIsLoading(false);
-      // Note: fetchCategories also sets isLoading, so be mindful of loading state management.
-      // For now, we'll rely on fetchCategories to handle its own loading for the list.
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to save category.';
+      toast.error(errorMessage);
     }
   };
-  
 
-  const handleCancel = () => {
-    setIsFormVisible(false);
-    setEditingCategory(null);
+  const handleDeleteCategory = async (categoryId) => {
+    if (window.confirm('Are you sure you want to delete this category?')) {
+      try {
+        await apiClient.delete(`/menu/categories/${categoryId}`);
+        toast.success('Category deleted successfully!');
+        fetchCategories();
+      } catch (err) {
+        console.error('Failed to delete category:', err);
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to delete category.';
+        toast.error(errorMessage);
+      }
+    }
   };
 
-  
-const handleDeleteCategory = async (categoryId, categoryName) => { // Added categoryName for better confirm message
-  console.log("Delete category clicked for ID:", categoryId, "Name:", categoryName);
-  // Use categoryName in the confirmation for better UX
-  if (window.confirm(`Are you sure you want to delete the category "${categoryName}" (ID: ${categoryId})? This action cannot be undone.`)) {
-    // It's good practice to show some loading state if the delete takes time,
-    // but for a quick operation, an alert on completion might be enough.
-    // setError(null); // Clear previous errors
-
-    try {
-      await apiClient.delete(`/menu/categories/${categoryId}`);
-      alert(`Category "${categoryName}" deleted successfully!`); // Simple feedback
-      fetchCategories(); // IMPORTANT: Re-fetch categories to update the list
-    } catch (err) {
-      console.error('Failed to delete category:', err);
-      const errorMessage = err.response?.data?.message ||
-                           err.message ||
-                           'Failed to delete category. It might be in use or an error occurred.';
-      // Display error in a more prominent way if you have a dedicated error display area
-      // For now, using alert for error as well, or you can use the existing setError state.
-      alert(`Error deleting category: ${errorMessage}`);
-      setError(errorMessage); // Also set the error state if you have an error display area
-    }
-  }
-};
-
-  if (isLoading) return <p>Loading categories...</p>;
+  if (isLoading && categories.length === 0) return <p>Loading categories...</p>;
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
 
   return (
     <div>
-      <h2>Manage Menu Categories</h2>
+      <h2 className="text-2xl font-bold mb-4">Manage Categories</h2>
       <button 
         onClick={handleAddCategory} 
-        style={{ marginBottom: '10px' }}
         disabled={isFormVisible}
+        className="mb-4 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
       >
         Add New Category
       </button>
 
       {isFormVisible && (
-        <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '4px' }}>
-          <h3>{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
-          <CategoryForm 
-            initialData={editingCategory}
-            onSubmitForm={handleFormSubmit}
-          />
-          <button 
-            onClick={handleCancel}
-            style={{ marginTop: '10px', marginLeft: '10px' }}
-          >
-            Cancel
-          </button>
+        <div className="mb-6 p-4 border border-gray-200 rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">
+            {editingCategory ? 'Edit Category' : 'Add New Category'}
+          </h3>
+          <form onSubmit={handleFormSubmit}>
+            <div className="mb-4">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
+              <input
+                type="text"
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+              <textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                rows="3"
+              />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={handleCancelForm}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                {editingCategory ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
       {categories.length > 0 ? (
-        <table border="1" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((category) => (
-              <tr key={category.id}>
-                <td>{category.id}</td>
-                <td>{category.name}</td>
-                <td>{category.description}</td>
-                <td>
-                  <button 
-                    onClick={() => handleEditCategory(category.id)} 
-                    style={{ marginRight: '5px' }}
-                    disabled={isFormVisible}
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteCategory(category.id, category.name)} 
-                    disabled={isFormVisible}
-                  >
-                    Delete
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {categories.map((category) => (
+                <tr key={category.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{category.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{category.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{category.description || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button 
+                      onClick={() => handleEditCategory(category)}
+                      disabled={isFormVisible}
+                      className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteCategory(category.id)}
+                      disabled={isFormVisible}
+                      className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <p>No categories found. Click "Add New Category" to start.</p>
+        <p className="text-gray-500">No categories found. Click "Add New Category" to start.</p>
       )}
     </div>
   );

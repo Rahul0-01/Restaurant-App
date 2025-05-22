@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/apiService';
 import OrderDetailsModal from './OrderDetailsModal';
+import { toast } from 'react-toastify';
 
 function OrderManagementPage() {
   const [orders, setOrders] = useState([]);
@@ -37,7 +38,7 @@ function OrderManagementPage() {
       console.error('Failed to fetch order details:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load order details.';
       setError(errorMessage);
-      alert(`Error: ${errorMessage}`);
+      toast.error(errorMessage);
     } finally {
       setIsFetchingDetails(false);
     }
@@ -84,7 +85,7 @@ function OrderManagementPage() {
       }
 
       await apiClient.put(`/orders/${orderId}/status`, { status: newStatus });
-      alert('Order status updated successfully!');
+      toast.success('Order status updated successfully!');
       fetchOrders();
       setPendingStatusUpdates(prev => {
         const updated = { ...prev };
@@ -95,13 +96,13 @@ function OrderManagementPage() {
       console.error('Failed to update order status:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to update order status.';
       setError(errorMessage);
-      alert(`Error: ${errorMessage}`);
+      toast.error(errorMessage);
     }
   };
 
   const handleCancelOrder = async () => {
     if (!cancellationReason.trim()) {
-      alert('Please provide a reason for cancellation.');
+      toast.warning('Please provide a reason for cancellation.');
       return;
     }
 
@@ -110,7 +111,7 @@ function OrderManagementPage() {
         status: 'CANCELLED',
         cancellationReason: cancellationReason.trim()
       });
-      alert('Order cancelled successfully!');
+      toast.success('Order cancelled successfully!');
       fetchOrders();
       setPendingStatusUpdates(prev => {
         const updated = { ...prev };
@@ -123,7 +124,7 @@ function OrderManagementPage() {
       console.error('Failed to cancel order:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to cancel order.';
       setError(errorMessage);
-      alert(`Error: ${errorMessage}`);
+      toast.error(errorMessage);
     }
   };
 
@@ -296,7 +297,7 @@ function OrderManagementPage() {
                         if (newStatus && newStatus !== order.status) {
                           handleUpdateOrderStatus(order.id, newStatus);
                         } else {
-                          alert('Please select a new status.');
+                          toast.info('Please select a new status.');
                         }
                       }}
                       disabled={!hasNewStatus || isCompletedOrCancelled}
