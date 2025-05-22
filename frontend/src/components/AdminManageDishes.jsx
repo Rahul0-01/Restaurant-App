@@ -10,12 +10,17 @@ function AdminManageDishes() {
   const [error, setError] = useState(null);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingDish, setEditingDish] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 10;
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     categoryId: '',
-    imageUrl: ''
+    imageUrl: '',
+    available: true
   });
 
   // Function to fetch dishes
@@ -23,11 +28,41 @@ function AdminManageDishes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get('/menu/dishes');
+      const response = await apiClient.get('/menu/dishes', {
+        params: {
+          page: currentPage,
+          size: pageSize
+        }
+      });
+      console.log('API Response:', response.data);
+      
       if (response.data && response.data.content) {
         setDishes(response.data.content);
+        setTotalPages(response.data.totalPages);
+        setTotalElements(response.data.totalElements);
+        console.log('Pagination Info:', {
+          currentPage,
+          totalPages: response.data.totalPages,
+          totalElements: response.data.totalElements,
+          contentLength: response.data.content.length
+        });
       } else {
-        setDishes(response.data || []);
+        // If response is not paginated, create pagination manually
+        const allDishes = response.data || [];
+        const startIndex = currentPage * pageSize;
+        const endIndex = startIndex + pageSize;
+        const paginatedDishes = allDishes.slice(startIndex, endIndex);
+        
+        setDishes(paginatedDishes);
+        setTotalPages(Math.ceil(allDishes.length / pageSize));
+        setTotalElements(allDishes.length);
+        
+        console.log('Manual Pagination:', {
+          currentPage,
+          totalPages: Math.ceil(allDishes.length / pageSize),
+          totalElements: allDishes.length,
+          paginatedDishesLength: paginatedDishes.length
+        });
       }
     } catch (err) {
       console.error('Failed to fetch dishes:', err);
@@ -57,7 +92,23 @@ function AdminManageDishes() {
   useEffect(() => {
     fetchDishes();
     fetchCategories();
-  }, []);
+  }, [currentPage]);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(prevPage => prevPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(prevPage => prevPage - 1);
+    }
+  };
+
+  const handlePageClick = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
 
   const handleAddDish = () => {
     setEditingDish(null);
@@ -66,7 +117,8 @@ function AdminManageDishes() {
       description: '',
       price: '',
       categoryId: '',
-      imageUrl: ''
+      imageUrl: '',
+      available: true
     });
     setIsFormVisible(true);
   };
@@ -78,7 +130,8 @@ function AdminManageDishes() {
       description: dish.description || '',
       price: dish.price.toString(),
       categoryId: dish.categoryId.toString(),
-      imageUrl: dish.imageUrl || ''
+      imageUrl: dish.imageUrl || '',
+      available: dish.available
     });
     setIsFormVisible(true);
   };
@@ -91,7 +144,8 @@ function AdminManageDishes() {
       description: '',
       price: '',
       categoryId: '',
-      imageUrl: ''
+      imageUrl: '',
+      available: true
     });
   };
 
@@ -128,7 +182,8 @@ function AdminManageDishes() {
       const payload = {
         ...formData,
         price: parseFloat(formData.price),
-        categoryId: parseInt(formData.categoryId)
+        categoryId: parseInt(formData.categoryId),
+        available: Boolean(formData.available)
       };
 
       if (editingDish) {
@@ -145,7 +200,8 @@ function AdminManageDishes() {
         description: '',
         price: '',
         categoryId: '',
-        imageUrl: ''
+        imageUrl: '',
+        available: true
       });
       fetchDishes();
     } catch (err) {
@@ -174,85 +230,12 @@ function AdminManageDishes() {
           <h3 className="text-lg font-semibold mb-4">
             {editingDish ? 'Edit Dish' : 'Add New Dish'}
           </h3>
-          <form onSubmit={handleFormSubmit}>
-            <div className="mb-4">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
-              <input
-                type="text"
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
-              <textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                rows="3"
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="price" className="block text-sm font-medium text-gray-700">Price</label>
-              <input
-                type="number"
-                id="price"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                step="0.01"
-                min="0"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700">Category</label>
-              <select
-                id="categoryId"
-                value={formData.categoryId}
-                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              >
-                <option value="">Select a category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="mb-4">
-              <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">Image URL</label>
-              <input
-                type="url"
-                id="imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={handleCancelForm}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                {editingDish ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </form>
+          <DishForm
+            initialData={editingDish}
+            categories={categories}
+            onSubmitForm={handleFormSubmit}
+            onCancel={handleCancelForm}
+          />
         </div>
       )}
 
@@ -275,7 +258,7 @@ function AdminManageDishes() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dish.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dish.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{dish.description || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dish.price}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dish.price.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {categories.find(cat => cat.id === dish.categoryId)?.name || 'N/A'}
                   </td>
@@ -302,6 +285,77 @@ function AdminManageDishes() {
         </div>
       ) : (
         <p className="text-gray-500">No dishes found. Click "Add New Dish" to start.</p>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={handlePreviousPage}
+              disabled={currentPage === 0}
+              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage >= totalPages - 1}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Showing <span className="font-medium">{currentPage * pageSize + 1}</span> to{' '}
+                <span className="font-medium">
+                  {Math.min((currentPage + 1) * pageSize, totalElements)}
+                </span>{' '}
+                of <span className="font-medium">{totalElements}</span> results
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 0}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {/* Page Numbers */}
+                {[...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePageClick(index)}
+                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                      currentPage === index
+                        ? 'z-10 bg-indigo-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+                        : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage >= totalPages - 1}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

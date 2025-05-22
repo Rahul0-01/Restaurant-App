@@ -1,107 +1,49 @@
 // src/App.jsx
 import React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Login from './components/Login';
-import Dashboard from './components/Dashboard';
-import AdminRoute from './components/AdminRoute'; 
-import { useAuth } from './context/AuthContext';
+import AdminDashboardPlaceholder from './components/AdminDashboardPlaceholder';
 import AdminManageCategories from './components/AdminManageCategories';
 import AdminManageDishes from './components/AdminManageDishes';
 import AdminManageTables from './components/AdminManageTables';
 import OrderManagementPage from './components/OrderManagementPage';
-import { Link } from 'react-router-dom';
+import CustomerMenuPage from './components/CustomerMenuPage';
+import AdminLayout from './components/AdminLayout';
+import AdminRoute from './components/AdminRoute';
+import { useAuth } from './context/AuthContext';
 import './App.css';
 
-// Let's create a placeholder Admin Dashboard component for now
-function AdminDashboardPlaceholder() {
-  return (
-    <div>
-      <h2>Admin Dashboard</h2>
-      <p>This is where admin-specific content and tools will go.</p>
-      <nav>
-        <ul>
-          <li>
-            <Link to="/admin/categories">Manage Categories</Link>
-          </li>
-          <li>
-            <Link to="/admin/dishes">Manage Dishes</Link>
-          </li>
-          <li>
-            <Link to="/admin/tables">Manage Tables</Link>
-          </li>
-          <li>
-            <Link to="/admin/orders">Manage Orders</Link>
-          </li>
-        </ul>
-      </nav>
-    </div>
-  );
-}
-// You might later move AdminDashboardPlaceholder to its own file in src/components/ or src/pages/admin/
-
 function App() {
-  const { isAuthenticated } = useAuth(); // Still useful for general /login vs /dashboard logic
-  const location = useLocation();
-
-  // console.log(`[App.jsx] Path: ${location.pathname}, isAuthenticated: ${isAuthenticated}`);
+  const { isAuthenticated } = useAuth();
 
   return (
-    <div className="App">
-      <ToastContainer
-        position="top-right"
-        autoClose={4000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+    <>
+      <ToastContainer position="top-right" autoClose={3000} />
       <Routes>
         {/* Public Routes */}
-        <Route
-          path="/login"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
-        />
+        <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/admin/dashboard" />} />
+        <Route path="/menu/:qrCodeIdentifier" element={<CustomerMenuPage />} />
 
-        {/* Authenticated User Routes (e.g., general dashboard) */}
-        <Route
-          path="/dashboard"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" state={{ from: location }} replace />}
-        />
+        {/* Protected Routes (Admin & Staff) */}
+        <Route element={isAuthenticated ? <AdminLayout /> : <Navigate to="/login" replace />}>
+          {/* Admin-only Routes */}
+          <Route element={<AdminRoute />}>
+            <Route path="/admin/dashboard" element={<AdminDashboardPlaceholder />} />
+            <Route path="/admin/categories" element={<AdminManageCategories />} />
+            <Route path="/admin/dishes" element={<AdminManageDishes />} />
+            <Route path="/admin/tables" element={<AdminManageTables />} />
+          </Route>
 
-        {/* Admin Routes - Protected by AdminRoute */}
-        {/* AdminRoute acts as a layout route here */}
-        <Route element={<AdminRoute />}>
-          {/* Child routes of AdminRoute. These will only be accessible if AdminRoute allows it. */}
-          {/* The <Outlet /> in AdminRoute will render these. */}
-          <Route path="/admin" element={<AdminDashboardPlaceholder />} />
-          <Route path="/admin/dashboard" element={<AdminDashboardPlaceholder />} />
-          <Route path="/admin/categories" element={<AdminManageCategories />} />
-          <Route path="/admin/dishes" element={<AdminManageDishes />} />
-          <Route path="/admin/tables" element={<AdminManageTables />} />
-          <Route path="/admin/orders" element={<OrderManagementPage />} />
-          {/* Example for later: <Route path="/admin/categories" element={<AdminCategoriesPage />} /> */}
-          {/* Example for later: <Route path="/admin/dishes" element={<AdminDishesPage />} /> */}
+          {/* Staff & Admin Routes */}
+          <Route path="/orders" element={<OrderManagementPage />} />
         </Route>
 
-        {/* Default route & Catch-all */}
-        <Route
-          path="/"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />}
-        />
-        <Route path="*" element={
-          <div style={{ padding: '20px', textAlign: 'center' }}>
-            <h2>404 - Page Not Found</h2>
-            <p>The page <code>{location.pathname}</code> does not exist.</p>
-          </div>
-        } />
+        {/* Default Route */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </div>
+    </>
   );
 }
 

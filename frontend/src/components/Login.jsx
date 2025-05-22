@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-// import { useNavigate } from 'react-router-dom'; // No longer need useNavigate here directly
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import apiClient from '../services/apiService';
+import { toast } from 'react-toastify';
 
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  // const navigate = useNavigate(); // Remove this
-  const { loginAction } = useAuth(); // Get loginAction from context
+  const navigate = useNavigate();
+  const { loginAction } = useAuth();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -27,8 +29,8 @@ function Login() {
       console.log('Login successful (from Login.jsx):', response.data);
       const token = response.data.jwtToken;
       // localStorage.setItem('jwtToken', token); // AuthContext handles this now
-      loginAction(response.data); // << CALL loginAction from context
-      // navigate('/dashboard'); // AuthContext handles this now
+      loginAction(response.data);
+      navigate('/dashboard');
 
     } catch (err) {
       console.error('Login error:', err.response ? err.response.data : err.message);
@@ -45,7 +47,6 @@ function Login() {
   };
 
   return (
-    // ... form JSX remains the same ...
     <div>
       <h2>Login Page</h2>
       <form onSubmit={handleSubmit}>

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 
 const DishForm = ({ initialData, categories, onSubmitForm, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
-    available: true,
-    categoryId: ''
+    categoryId: '',
+    imageUrl: '',
+    available: true
   });
 
   useEffect(() => {
@@ -14,9 +16,19 @@ const DishForm = ({ initialData, categories, onSubmitForm, onCancel }) => {
       setFormData({
         name: initialData.name || '',
         description: initialData.description || '',
-        price: initialData.price || '',
-        available: initialData.available ?? true,
-        categoryId: initialData.category?.id || ''
+        price: initialData.price?.toString() || '',
+        categoryId: initialData.categoryId?.toString() || '',
+        imageUrl: initialData.imageUrl || '',
+        available: initialData.available ?? true
+      });
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        price: '',
+        categoryId: '',
+        imageUrl: '',
+        available: true
       });
     }
   }, [initialData]);
@@ -31,11 +43,30 @@ const DishForm = ({ initialData, categories, onSubmitForm, onCancel }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Convert price to number before submitting
+    
+    if (!formData.name.trim()) {
+      toast.warning('Dish name is required.');
+      return;
+    }
+    if (!formData.price || isNaN(formData.price) || parseFloat(formData.price) <= 0) {
+      toast.warning('Please enter a valid price.');
+      return;
+    }
+    if (!formData.categoryId) {
+      toast.warning('Please select a category.');
+      return;
+    }
+
+    // Construct submitData with explicit boolean conversion for available
     const submitData = {
-      ...formData,
-      price: parseFloat(formData.price)
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      price: parseFloat(formData.price),
+      categoryId: parseInt(formData.categoryId),
+      imageUrl: formData.imageUrl.trim(),
+      available: Boolean(formData.available) // Explicit boolean conversion
     };
+    
     onSubmitForm(submitData);
   };
 
@@ -111,6 +142,21 @@ const DishForm = ({ initialData, categories, onSubmitForm, onCancel }) => {
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
+          Image URL
+        </label>
+        <input
+          type="url"
+          id="imageUrl"
+          name="imageUrl"
+          value={formData.imageUrl}
+          onChange={handleChange}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          placeholder="https://example.com/image.jpg"
+        />
       </div>
 
       <div className="flex items-center">

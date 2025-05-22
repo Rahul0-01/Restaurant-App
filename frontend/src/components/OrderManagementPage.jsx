@@ -3,12 +3,16 @@ import apiClient from '../services/apiService';
 import OrderDetailsModal from './OrderDetailsModal';
 import { toast } from 'react-toastify';
 
+const pageSize = 10;
+
 function OrderManagementPage() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterTableId, setFilterTableId] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [pendingStatusUpdates, setPendingStatusUpdates] = useState({});
   const [cancellationReason, setCancellationReason] = useState('');
   const [orderToCancel, setOrderToCancel] = useState(null);
@@ -53,25 +57,20 @@ function OrderManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const queryParams = {};
-      if (filterStatus) {
-        queryParams.status = filterStatus;
-      }
-      if (filterTableId) {
-        queryParams.tableId = filterTableId;
-      }
-
+      const queryParams = {
+        page: currentPage,
+        size: pageSize,
+      };
+      if (filterStatus) queryParams.status = filterStatus;
+      if (filterTableId) queryParams.tableId = filterTableId;
       const response = await apiClient.get('/orders', { params: queryParams });
-      if (response.data && response.data.content) {
-        console.log('Order data structure:', response.data.content[0]);
-        setOrders(response.data.content);
-      } else {
-        console.log('Order data structure:', response.data[0]);
-        setOrders(response.data || []);
-      }
+      setOrders(response.data.content || []);
+      setTotalPages(response.data.totalPages || 0);
     } catch (err) {
       console.error('Failed to fetch orders:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to load orders.');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load orders.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -129,18 +128,33 @@ function OrderManagementPage() {
   };
 
   const handleApplyFilters = () => {
+    setCurrentPage(0);
     fetchOrders();
   };
 
   const handleClearFilters = () => {
     setFilterStatus('');
     setFilterTableId('');
+    setCurrentPage(0);
     fetchOrders();
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage((prev) => prev - 1);
+    }
   };
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+    // eslint-disable-next-line
+  }, [currentPage, filterStatus, filterTableId]);
 
   if (isLoading) return <p>Loading orders...</p>;
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
@@ -312,6 +326,28 @@ function OrderManagementPage() {
         </table>
       ) : (
         <p>No orders found.</p>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center mt-4 space-x-4">
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0}
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <span>
+            Page {currentPage + 1} of {totalPages}
+          </span>
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages - 1}
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       )}
 
       {/* Order Details Modal */}
