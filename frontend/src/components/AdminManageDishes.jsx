@@ -163,27 +163,27 @@ function AdminManageDishes() {
     }
   };
 
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.name.trim()) {
+  const handleFormSubmit = async (dishData) => {
+   
+    if (!dishData.name.trim()) {
       toast.warning('Dish name is required.');
       return;
     }
-    if (!formData.price || isNaN(formData.price) || parseFloat(formData.price) <= 0) {
+    if (!dishData.price || isNaN(dishData.price) || parseFloat(dishData.price) <= 0) {
       toast.warning('Please enter a valid price.');
       return;
     }
-    if (!formData.categoryId) {
+    if (!dishData.categoryId) {
       toast.warning('Please select a category.');
       return;
     }
 
     try {
       const payload = {
-        ...formData,
-        price: parseFloat(formData.price),
-        categoryId: parseInt(formData.categoryId),
-        available: Boolean(formData.available)
+        ...dishData,
+        price: parseFloat(dishData.price),
+        categoryId: parseInt(dishData.categoryId),
+        available: Boolean(dishData.available)
       };
 
       if (editingDish) {
