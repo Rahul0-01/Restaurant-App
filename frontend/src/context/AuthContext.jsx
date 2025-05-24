@@ -51,7 +51,7 @@ export function AuthProvider({ children }) {
 
   // loginAction now expects the whole response data from the API
   const loginAction = (loginResponseData) => {
-    console.log("[AuthContext] loginAction called with data:", loginResponseData);
+    // console.log("[AuthContext] loginAction called with data:", loginResponseData);
     if (loginResponseData && loginResponseData.jwtToken && loginResponseData.username && loginResponseData.roles) {
       const { jwtToken, username, roles } = loginResponseData;
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
   };
 
   const logoutAction = () => {
-    console.log("[AuthContext] logoutAction called");
+//
     localStorage.removeItem('jwtToken');
     localStorage.removeItem('user'); // Remove user from localStorage
     setToken(null);

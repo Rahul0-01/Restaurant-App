@@ -43,6 +43,7 @@ function OrderManagementPage() {
       const response = await apiClient.get(`/orders/${orderId}`);
       setSelectedOrderForDetails(response.data);
       setIsViewDetailsModalOpen(true);
+     // console.log(`[OrderManagementPage] fetchOrderDetails - Response for order ID ${orderId}:`, JSON.stringify(response.data, null, 2));
     } catch (err) {
       console.error('Failed to fetch order details:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load order details.';
