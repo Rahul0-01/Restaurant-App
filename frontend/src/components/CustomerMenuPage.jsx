@@ -230,25 +230,55 @@ function CustomerMenuPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {dishesByCategoryId[selectedCategory]?.map(dish => (
-                <div key={dish.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <div className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">{dish.name}</h3>
-                        <p className="mt-1 text-sm text-gray-500">{dish.description}</p>
-                      </div>
-                      <span className="text-lg font-medium text-indigo-600">${dish.price.toFixed(2)}</span>
-                    </div>
-                    <div className="mt-4">
-                      <button
-                        onClick={() => handleAddToCart(dish)}
-                        className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Add to Cart
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                // Inside {dishesByCategoryId[selectedCategory]?.map(dish => ( ... ))}
+<div key={dish.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col"> {/* Added flex flex-col */}
+  {/* Dish Image Section */}
+  {dish.imageUrl ? (
+    <img
+      src={dish.imageUrl}
+      alt={dish.name || 'Dish image'}
+      className="w-full h-48 object-cover" // Image takes full width, fixed height, covers area
+      onError={(e) => { // Fallback for broken image URLs
+        e.target.onerror = null;
+        e.target.style.display = 'none'; // Hide broken image icon
+        // Optionally, show a placeholder div instead:
+        // e.target.parentElement.innerHTML = '<div class="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400 text-sm">Image N/A</div>';
+      }}
+    />
+  ) : (
+    <div className="w-full h-48 bg-gray-200 flex items-center justify-center"> {/* Placeholder for no image */}
+      <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 7v10m0-10L12 3l8 4m-8-4v5m0 0L4 7m8 1v5m0 0l8-4m-8 4v5m0 0L4 17m8 1L4 13m8 5l8-4m-8-1L12 3" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 7v10m0-10L12 3l8 4m-8-4v5m0 0L4 7m8 1v5m0 0l8-4m-8 4v5m0 0L4 17m8 1L4 13m8 5l8-4" /> {/** simple food icon placeholder */}
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 10a.5.5 0 01.5-.5h5a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-5a.5.5 0 01-.5-.5v-4z"></path>
+      </svg>
+    </div>
+  )}
+
+  {/* Dish Info Section */}
+  <div className="p-6 flex-1 flex flex-col justify-between"> {/* Added flex-1 and flex flex-col */}
+    <div> {/* Wrapper for text content */}
+      <div className="flex justify-between items-start">
+        <h3 className="text-lg font-medium text-gray-900">{dish.name}</h3>
+        <span className="text-lg font-medium text-indigo-600 whitespace-nowrap pl-2">
+          ${dish.price.toFixed(2)}
+        </span>
+      </div>
+      {dish.description && ( // Conditionally render description
+        <p className="mt-1 text-sm text-gray-500">{dish.description}</p>
+      )}
+    </div>
+    <div className="mt-4">
+      <button
+        onClick={() => handleAddToCart(dish)}
+        className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        Add to Cart
+      </button>
+    </div>
+  </div>
+</div>
               ))}
             </div>
           </div>
