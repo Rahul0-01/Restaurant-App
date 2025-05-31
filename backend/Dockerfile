@@ -9,6 +9,9 @@ WORKDIR /app
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
 
+# Make mvnw executable
+RUN chmod +x mvnw
+
 # Build the application (This will also download dependencies)
 RUN ./mvnw package -DskipTests
 
