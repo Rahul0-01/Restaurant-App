@@ -130,8 +130,14 @@
 					</execution>
 				</executions>
 				<configuration>
-					<!-- Ensure this is your exact main class -->
 					<mainClass>com.restaurant.restaurantapp.RestaurantappApplication</mainClass>
+					<excludeDevtools>true</excludeDevtools> <!-- Add this line -->
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 		</plugins>
