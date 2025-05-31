@@ -18,7 +18,7 @@ public class DishDTO {
      private BigDecimal price;
      private boolean available; // Important to tell the client if it can be ordered
      private Long categoryId; // Send only the ID of the category
-
+    private String imageUrl;
 
 
 

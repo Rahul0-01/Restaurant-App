@@ -22,7 +22,7 @@ public class Dish {
     @Column(nullable = false, precision = 10, scale = 2) // Price is required, use precision/scale for currency
     private BigDecimal price; // Use BigDecimal for money to avoid floating-point errors
 
-    @Column(length = 255) // Optional URL for the dish image
+    @Column(name = "image_url", length = 1024) // Optional: specify column name and length
     private String imageUrl;
 
     @Column(nullable = false) // Must know if it's available or not
@@ -33,6 +33,7 @@ public class Dish {
     @JoinColumn(name = "category_id", nullable = false) // Specifies the foreign key column in the 'dishes' table
     private Category category; // Reference to the Category object this dish belongs to
     // ------------------------------------
+
 
 
 }

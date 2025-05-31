@@ -21,5 +21,5 @@ public class DishRequestDTO {
     @NotNull(message = "Category ID cannot be null")
     private Long categoryId;
 
-    // Add imageUrl if using
+    private String imageUrl;
 }

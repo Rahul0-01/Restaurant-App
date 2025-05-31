@@ -31,6 +31,12 @@ public class Order {
     private RestaurantTable restaurantTable;
     // ----------------------------------------------------
 
+    @Column(name = "razorpay_order_id", length = 100, unique = true) // Make it unique if one Razorpay order maps to one app order
+    private String razorpayOrderId;
+
+    @Column
+    private String razorpayPaymentId;
+
     @Column(nullable = false, updatable = false) // Order time shouldn't be null and shouldn't be changed after creation
     private LocalDateTime orderTime; // Stores the exact date and time the order was placed
 

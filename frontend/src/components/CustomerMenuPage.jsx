@@ -162,7 +162,7 @@ function CustomerMenuPage() {
       // Step 2: Create Razorpay Order
       const createRazorpayOrderRequest = {
         amount: orderTotalPriceFromBackend, // Use authoritative amount from your backend
-        currency: "USD", // Or "INR" - TODO: make this configurable or match backend
+        currency: "INR", // Or "INR" - TODO: make this configurable or match backend
         receipt: internalOrderId.toString()
       };
 
@@ -174,7 +174,7 @@ function CustomerMenuPage() {
       const options = {
         key: rzpOrderData.razorpayKeyId,
         amount: rzpOrderData.amountInPaise.toString(), // Amount in paise
-        currency: rzpOrderData.currency,
+        currency: "INR",
         name: "Your Restaurant Name", // Replace
         description: `Order #${internalOrderId}`,
         image: "/vite.svg", // Replace with your logo URL
