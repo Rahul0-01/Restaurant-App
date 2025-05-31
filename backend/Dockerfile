@@ -1,23 +1,17 @@
-# Use an official OpenJDK runtime as a parent image
-FROM openjdk:17-jdk-slim
-
-# Set the working directory in the container
+FROM openjdk:17-jdk-slim AS build
 WORKDIR /app
 
-# Copy the Maven wrapper and pom.xml to leverage Docker cache
-# If you are using Gradle, you will need to adjust these lines later. For now, let's assume Maven.
+COPY pom.xml mvnw ./
 COPY .mvn/ .mvn
-COPY mvnw pom.xml ./
-
-# Make mvnw executable
 RUN chmod +x mvnw
 
-# Build the application (This will also download dependencies)
+COPY src/ src/
+
 RUN ./mvnw clean package -DskipTests
+RUN jar tf target/restaurantapp-0.0.1-SNAPSHOT.jar | grep "RestaurantappApplication"
 
-# Expose the port the app runs on (Spring Boot default is 8080)
+FROM eclipse-temurin:17-jdk-jammy
+WORKDIR /app
+COPY --from=build /app/target/restaurantapp-0.0.1-SNAPSHOT.jar ./app.jar
 EXPOSE 8080
-
-# Define the command to run the application
-# IMPORTANT: We will customize the 'your-app-name-0.0.1-SNAPSHOT.jar' part in the NEXT step.
-ENTRYPOINT ["java", "-jar", "target/restaurantapp-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
