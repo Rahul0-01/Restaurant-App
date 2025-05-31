@@ -13,7 +13,7 @@ COPY mvnw pom.xml ./
 RUN chmod +x mvnw
 
 # Build the application (This will also download dependencies)
-RUN ./mvnw package -DskipTests
+RUN ./mvnw clean package -DskipTests
 
 # Expose the port the app runs on (Spring Boot default is 8080)
 EXPOSE 8080
