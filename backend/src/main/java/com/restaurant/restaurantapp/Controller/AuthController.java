@@ -102,7 +102,7 @@ public class AuthController {
 
         // Assuming Role is an enum with values like ADMIN, STAFF
         // And User entity has a Set<Role> roles field.
-        user.setRoles(Set.of(Role.ADMIN)); // Make sure Role.STAFF is a valid enum constant
+        user.setRoles(Set.of(Role.STAFF)); // Make sure Role.STAFF is a valid enum constant
 
         try {
             userRepository.save(user);
