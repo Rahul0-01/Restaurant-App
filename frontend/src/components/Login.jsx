@@ -5,6 +5,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import apiService from '../services/apiService';
+
 
 // Minimalist Loading Spinner
 const MinimalSpinnerIcon = (props) => (
@@ -33,11 +35,10 @@ function Login() {
     event.preventDefault();
     setError('');
     setLoading(true);
-    const loginUrl = 'http://localhost:8080/api/auth/login'; // Move to .env or config
-
+   
     try {
-      const response = await axios.post(loginUrl, { username, password });
-      loginAction(response.data);
+      const response = await apiService.post('/auth/login', { username, password });
+         loginAction(response.data);
       navigate('/admin/dashboard'); 
     } catch (err) {
       let errorMessage = 'Login failed. Please try again.';
