@@ -19,12 +19,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration; // <-- ADDED IMPORT
-import org.springframework.web.cors.CorsConfigurationSource; // <-- ADDED IMPORT
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // <-- ADDED IMPORT
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays; // <-- ADDED IMPORT
-import java.util.List;   // <-- ADDED IMPORT
+import java.util.Arrays;
+import java.util.List;
 
 
 @Configuration
@@ -58,9 +58,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // Your React frontend URL
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-XSRF-TOKEN")); // Ensure "Authorization" is here
+
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173", // Your React local dev frontend URL
+                "https://cool-kleicha-7eaec9.netlify.app" // YOUR LIVE NETLIFY FRONTEND URL
+        ));
+
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")); // Added PATCH
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-XSRF-TOKEN", "X-Requested-With", "Origin", "Accept")); // Added common headers
+        configuration.setExposedHeaders(Arrays.asList("Authorization")); // Good to expose Authorization if your frontend needs to read it from response
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L); // 1 hour
 
@@ -74,7 +80,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // **** ENABLE CORS HERE ****
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // **** ENSURE THIS LINE IS PRESENT ****
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         // --- Public Endpoints ---
@@ -89,8 +95,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/menu/**").hasRole("ADMIN")
 
                         // --- Order Management (STAFF or ADMIN) ---
-                        .requestMatchers(HttpMethod.POST, "/api/orders").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/status").hasAnyRole("STAFF", "ADMIN") // <<< THIS IS THE CORRECTED LINE
+                        .requestMatchers(HttpMethod.POST, "/api/orders").hasAnyRole("STAFF", "ADMIN") // This allows placing order for customer via QR
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/status").hasAnyRole("STAFF", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").hasAnyRole("STAFF", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("STAFF", "ADMIN")
 
@@ -98,12 +104,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/tables").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/tables/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/tables/**").hasRole("ADMIN")
-                        // The order of matchers matters. Specific ones first.
-                        .requestMatchers(HttpMethod.GET, "/api/tables/{id}").hasAnyRole("STAFF", "ADMIN") // Get Table by specific ID
-                        .requestMatchers(HttpMethod.GET, "/api/tables").hasAnyRole("STAFF", "ADMIN") // Get All Tables (covers base /api/tables)
+                        .requestMatchers(HttpMethod.GET, "/api/tables/{id}").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/tables").hasAnyRole("STAFF", "ADMIN")
 
-                        // Note: /api/tables/qr/** is already permitAll. Other GET /api/tables/** would be caught by anyRequest if not specified.
-                        // The rules above for GET /api/tables and GET /api/tables/{id} should cover STAFF/ADMIN access for non-QR GETs.
+                        // Payment endpoints
+                        .requestMatchers("/api/payments/create-razorpay-order").authenticated() // Assuming authenticated user (customer or staff)
+                        .requestMatchers("/api/payments/verify-payment").authenticated()      // Assuming authenticated user
 
                         .anyRequest().authenticated()
                 )
