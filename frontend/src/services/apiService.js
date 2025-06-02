@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+
+console.log("VITE_API_BASE_URL from import.meta.env:", import.meta.env.VITE_API_BASE_URL);
 // The base URL of your Spring Boot backend
-const API_BASE_URL = 'http://localhost:8080/api'; // Adjust if your base path or port is different
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
+console.log("Using API_BASE_URL:", API_BASE_URL); // Log the final URL being used
 
 // Create a new Axios instance
 const apiClient = axios.create({
