@@ -80,41 +80,47 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // **** ENSURE THIS LINE IS PRESENT ****
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Uses your defined CorsConfigurationSource
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        // --- Public Endpoints ---
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        // --- PUBLIC AUTHENTICATION & REGISTRATION ---
+                        .requestMatchers("/api/auth/**").permitAll() // Covers /login, /register
+
+                        // --- PUBLIC CUSTOMER-FACING MENU & TABLE LOOKUP ---
                         .requestMatchers(HttpMethod.GET, "/api/tables/qr/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/menu/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/menu/**").permitAll() // Covers categories & dishes for viewing
 
-                        // --- Menu Management (ADMIN Only) ---
-                        .requestMatchers(HttpMethod.POST, "/api/menu/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/menu/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/menu/**").hasRole("ADMIN")
+                        // --- PUBLIC CUSTOMER ORDERING & PAYMENT FLOW ---
+                        .requestMatchers(HttpMethod.POST, "/api/orders").permitAll() // Customer places initial PENDING order
+                        .requestMatchers(HttpMethod.POST, "/api/payments/create-razorpay-order").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/verify-payment").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/status/**").permitAll() // Customer checks their order status
 
-                        // --- Order Management (STAFF or ADMIN) ---
-                        .requestMatchers(HttpMethod.POST, "/api/orders").hasAnyRole("STAFF", "ADMIN") // This allows placing order for customer via QR
-                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/status").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("STAFF", "ADMIN")
+                        // --- ADMIN ONLY: Menu Management (Categories & Dishes CRUD) ---
+                        // Assuming /api/menu/categories and /api/menu/dishes are the base paths for these
+                        .requestMatchers(HttpMethod.POST, "/api/menu/categories", "/api/menu/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/menu/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/menu/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/menu/dishes", "/api/menu/dishes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/menu/dishes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/menu/dishes/**").hasRole("ADMIN")
 
-                        // --- Table Management ---
-                        .requestMatchers(HttpMethod.POST, "/api/tables").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/tables/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/tables/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/tables/{id}").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/tables").hasAnyRole("STAFF", "ADMIN")
+                        // --- ADMIN ONLY: Table Management (Full CRUD) ---
+                        .requestMatchers("/api/tables", "/api/tables/**").hasRole("ADMIN") // Simplifies if all /api/tables mutations are ADMIN only
+                        // If staff needs to GET tables, that was covered by permitAll to /api/menu/** assuming it included tables,
+                        // or you'd need a specific GET rule for STAFF here if it's separate from /api/menu/**
 
-                        // Payment endpoints
-                        .requestMatchers("/api/payments/create-razorpay-order").authenticated() // Assuming authenticated user (customer or staff)
-                        .requestMatchers("/api/payments/verify-payment").authenticated()      // Assuming authenticated user
+                        // --- STAFF & ADMIN: Order Management (Viewing list, specific order, updating status) ---
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("STAFF", "ADMIN")          // List all orders
+                        .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").hasAnyRole("STAFF", "ADMIN") // Get specific order
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/status").hasAnyRole("STAFF", "ADMIN") // Update order status
+                        // Add other order management PUT/POST specific to staff/admin if any (e.g., cancel)
 
+                        // --- Any other request must be authenticated ---
                         .anyRequest().authenticated()
                 )
-                .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+                .authenticationProvider(authenticationProvider()) // Make sure you have this bean defined
+                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class); // Your JWT filter
 
         return http.build();
     }

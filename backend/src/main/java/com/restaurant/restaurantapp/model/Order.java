@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime; // Modern Java Date/Time API
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity // Mark this class as a JPA entity (maps to a database table)
 @Table(name = "customer_orders") // Explicitly map to "customer_orders" table to avoid SQL keyword conflict
@@ -50,6 +51,8 @@ public class Order {
     @Column(length = 500) // Allow some space for notes
     private String notes; // Optional notes from the customer (e.g., allergies, special requests)
 
+    @Column(unique = true, nullable = false, length = 36) // UUIDs are 36 characters long (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    private String publicTrackingId;
     // --- Relationship: What items are in this order? ---
     // One Order can have Many OrderItems
     @OneToMany(
@@ -74,6 +77,9 @@ public class Order {
         // Automatically set the order time to the current time only when the order is first created
         if (this.orderTime == null) {
             this.orderTime = LocalDateTime.now();
+        }
+        if (this.publicTrackingId == null) {
+            this.publicTrackingId = UUID.randomUUID().toString();
         }
     }
     // ----------------------------

@@ -4,7 +4,7 @@ import com.restaurant.restaurantapp.DTO.*;
 import com.restaurant.restaurantapp.Exception.InvalidRequestException;
 import com.restaurant.restaurantapp.Exception.ResourceNotFoundException;
 import com.restaurant.restaurantapp.model.*;
-import com.restaurant.restaurantapp.Repository.*; // Import all repositories
+import com.restaurant.restaurantapp.Repository.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,25 +29,21 @@ public class OrderService {
     private final DishRepository dishRepository;
     private final RestaurantTableRepository tableRepository;
 
-    // --- Place Order (from previous example, seems complete) ---
+    // --- Place Order ---
     public OrderResponseDTO placeOrder(OrderRequestDTO orderRequestDTO) {
         log.info("Placing new order for table ID: {}", orderRequestDTO.getTableId());
-        // 1. Basic Validation
         if (orderRequestDTO.getTableId() == null || orderRequestDTO.getItems() == null || orderRequestDTO.getItems().isEmpty()) {
             throw new InvalidRequestException("Order request must include table ID and at least one item.");
         }
 
-        // 2. Find Table
         RestaurantTable table = tableRepository.findById(orderRequestDTO.getTableId())
                 .orElseThrow(() -> new ResourceNotFoundException("Table not found with ID: " + orderRequestDTO.getTableId()));
 
-        // 3. Create Order
         Order newOrder = new Order();
         newOrder.setRestaurantTable(table);
-        newOrder.setStatus(OrderStatus.PENDING); // Initial status
+        newOrder.setStatus(OrderStatus.PENDING);
         newOrder.setNotes(orderRequestDTO.getNotes());
 
-        // 4. Process Items
         for (OrderItemRequestDTO itemDto : orderRequestDTO.getItems()) {
             Dish dish = dishRepository.findById(itemDto.getDishId())
                     .orElseThrow(() -> new ResourceNotFoundException("Dish not found with ID: " + itemDto.getDishId()));
@@ -55,28 +51,25 @@ public class OrderService {
             if (!dish.isAvailable()) {
                 throw new InvalidRequestException("Dish '" + dish.getName() + "' is currently unavailable.");
             }
-            if(dish.getPrice() == null || dish.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            if (dish.getPrice() == null || dish.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new InvalidRequestException("Dish '" + dish.getName() + "' does not have a valid price.");
             }
 
             OrderItem orderItem = new OrderItem();
             orderItem.setDish(dish);
             orderItem.setQuantity(itemDto.getQuantity());
-            orderItem.setPrice(dish.getPrice()); // Price at time of order
+            orderItem.setPrice(dish.getPrice());
 
-            newOrder.addItem(orderItem); // Adds item and recalculates total
+            newOrder.addItem(orderItem);
         }
 
-        // 5. Save Order (cascades to items)
         Order savedOrder = orderRepository.save(newOrder);
         log.info("Successfully placed order ID: {}", savedOrder.getId());
 
-        // 6. Map and Return DTO
         return mapOrderToResponseDTO(savedOrder);
     }
 
     // --- Get Orders ---
-
     @Transactional(readOnly = true)
     public OrderResponseDTO getOrderById(Long orderId) {
         log.debug("Fetching order by ID: {}", orderId);
@@ -88,9 +81,8 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Page<OrderResponseDTO> getOrders(Long tableId, OrderStatus status, Pageable pageable) {
         log.debug("Fetching orders with filter - tableId: {}, status: {}, pagination: {}", tableId, status, pageable);
-        Page<Order> orderPage; // Will hold the Page of Order entities
+        Page<Order> orderPage;
 
-        // 3. Call the correct PAGINATED repository method based on filters
         if (tableId != null && status != null) {
             orderPage = orderRepository.findByRestaurantTableIdAndStatus(tableId, status, pageable);
         } else if (tableId != null) {
@@ -98,15 +90,48 @@ public class OrderService {
         } else if (status != null) {
             orderPage = orderRepository.findByStatus(status, pageable);
         } else {
-            // If no filters, get all orders with pagination
             orderPage = orderRepository.findAll(pageable);
         }
 
-        // 4. Map Page<Order> to Page<OrderResponseDTO>
-        Page<OrderResponseDTO> orderDtoPage = orderPage.map(this::mapOrderToResponseDTO);
+        return orderPage.map(this::mapOrderToResponseDTO);
+    }
 
-        // 5. Return the page of DTOs
-        return orderDtoPage;
+    // --- Get Order Status By Public Tracking ID ---
+    @Transactional(readOnly = true)
+    public CustomerOrderStatusDto getOrderStatusByPublicTrackingId(String publicTrackingId) {
+        log.debug("Fetching order status by publicTrackingId: {}", publicTrackingId);
+
+        Order order = orderRepository.findByPublicTrackingId(publicTrackingId)
+                .orElseThrow(() -> {
+                    log.warn("Order not found with publicTrackingId: {}", publicTrackingId);
+                    return new ResourceNotFoundException("Order not found with tracking ID: " + publicTrackingId);
+                });
+
+        CustomerOrderStatusDto dto = new CustomerOrderStatusDto();
+        dto.setInternalOrderId(order.getId()); // <<< THIS IS THE ONLY ADDED LINE
+        dto.setPublicTrackingId(order.getPublicTrackingId());
+        dto.setStatus(order.getStatus());
+        dto.setOrderTime(order.getOrderTime());
+        dto.setTotalPrice(order.getTotalPrice());
+
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            List<CustomerOrderStatusDto.OrderItemSimpleDto> itemDtos = order.getItems().stream()
+                    .map(orderItem -> {
+                        String dishName = (orderItem.getDish() != null) ? orderItem.getDish().getName() : "Unknown Dish";
+                        return new CustomerOrderStatusDto.OrderItemSimpleDto(
+                                dishName,
+                                orderItem.getQuantity(),
+                                orderItem.getPrice()
+                        );
+                    })
+                    .collect(Collectors.toList());
+            dto.setItems(itemDtos);
+        } else {
+            dto.setItems(new ArrayList<>());
+        }
+
+        log.info("Successfully fetched order status for publicTrackingId: {}", publicTrackingId);
+        return dto;
     }
 
     // --- Update Order Status ---
@@ -115,7 +140,6 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
 
-        // Optional: Add logic to validate status transitions (e.g., can't go from SERVED back to PENDING)
         log.info("Order {} status changing from {} to {}", orderId, order.getStatus(), newStatus);
         order.setStatus(newStatus);
 
@@ -123,8 +147,7 @@ public class OrderService {
         return mapOrderToResponseDTO(updatedOrder);
     }
 
-
-    // --- Mappers (Ensure these are present and correct) ---
+    // --- Mappers ---
     private OrderResponseDTO mapOrderToResponseDTO(Order order) {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());
@@ -136,9 +159,13 @@ public class OrderService {
         dto.setStatus(order.getStatus());
         dto.setTotalPrice(order.getTotalPrice());
         dto.setNotes(order.getNotes());
-        dto.setItems(order.getItems().stream()
-                .map(this::mapOrderItemToResponseDTO)
-                .collect(Collectors.toList()));
+        if (order.getItems() != null) {
+            dto.setItems(order.getItems().stream()
+                    .map(this::mapOrderItemToResponseDTO)
+                    .collect(Collectors.toList()));
+        } else {
+            dto.setItems(new ArrayList<>());
+        }
         return dto;
     }
 
@@ -148,11 +175,16 @@ public class OrderService {
         if (item.getDish() != null) {
             dto.setDishId(item.getDish().getId());
             dto.setDishName(item.getDish().getName());
+        } else {
+            dto.setDishName("Unknown Dish");
         }
         dto.setQuantity(item.getQuantity());
         dto.setPrice(item.getPrice());
-        // Calculate line item total
-        dto.setLineItemTotal(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+        if (item.getPrice() != null && item.getQuantity() > 0) {
+            dto.setLineItemTotal(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+        } else {
+            dto.setLineItemTotal(BigDecimal.ZERO);
+        }
         return dto;
     }
 }

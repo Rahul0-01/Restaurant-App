@@ -1,11 +1,10 @@
 import axios from 'axios';
 
-
-console.log("VITE_API_BASE_URL from import.meta.env:", import.meta.env.VITE_API_BASE_URL);
-// The base URL of your Spring Boot backend
+// The base URL of your Spring Boot backend from environment variables,
+// with a fallback for local development.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-console.log("Using API_BASE_URL:", API_BASE_URL); // Log the final URL being used
+console.log("Axios instance created with baseURL:", API_BASE_URL);
 
 // Create a new Axios instance
 const apiClient = axios.create({
@@ -15,62 +14,71 @@ const apiClient = axios.create({
   },
 });
 
-// Add a request interceptor to include the JWT token
+// === REQUEST INTERCEPTOR ===
+// This runs BEFORE each request is sent.
+// Its job is to add the JWT token to the Authorization header if it exists.
 apiClient.interceptors.request.use(
   (config) => {
-    // Get the token from localStorage (or your AuthContext if you prefer, though localStorage is common for this)
     const token = localStorage.getItem('jwtToken');
-
     if (token) {
-      // If the token exists, add it to the Authorization header
       config.headers['Authorization'] = `Bearer ${token}`;
     }
-    return config; // Return the modified config
+    return config;
   },
   (error) => {
-    // Handle request error
+    // This part handles errors that happen when setting up the request itself.
     return Promise.reject(error);
   }
 );
 
-// Add a response interceptor (optional, but good for global error handling or token refresh)
+
+// === RESPONSE INTERCEPTOR ===
+// This runs AFTER a response is received from the backend.
+// Its job is to handle global responses, especially errors.
 apiClient.interceptors.response.use(
   (response) => {
-    // Any status code that lie within the range of 2xx cause this function to trigger
+    // If the response is successful (status 2xx), just return it.
     return response;
   },
   (error) => {
-    // Any status codes that falls outside the range of 2xx cause this function to trigger
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
+    // This part handles all error responses (status 4xx, 5xx).
+
+    // --- START OF THE NEW, SMARTER 401 ERROR HANDLING ---
+
+    // Check if the error has a response from the server and the status is 401
+   // ... inside the error handling function ...
+if (error.response && error.response.status === 401) {
+  console.log('%c --- AXIOS 401 INTERCEPTOR FIRED --- ', 'background: red; color: white; font-size: 16px;');
+  const currentPath = window.location.pathname;
+  console.log(`Current window path is: ${currentPath}`);
+  debugger; // <<< THIS IS THE IMPORTANT PART
+  // The rest of the logic from before...
+  const publicPaths = ['/login', '/register', '/menu', '/order-success', '/order-status'];
+  const isPublicPath = publicPaths.some(path => currentPath.startsWith(path));
+  if (!isPublicPath) {
+    console.error('Redirecting to /login from protected path.');
+    window.location.href = '/login';
+  } else {
+    console.log('On public path. NO REDIRECT will happen from interceptor.');
+  }
+}
+
+    // --- END OF THE NEW, SMARTER 401 ERROR HANDLING ---
+    else if (error.response) {
+      // Handle other server errors (like 400, 404, 500)
       console.error('API Error Response:', error.response.data);
       console.error('Status:', error.response.status);
-      console.error('Headers:', error.response.headers);
-
-      if (error.response.status === 401) {
-        // Handle 401 Unauthorized errors (e.g., token expired or invalid)
-        // Option 1: Simple logout
-        console.warn('Unauthorized access (401). Token might be invalid or expired. Logging out.');
-        localStorage.removeItem('jwtToken');
-        // To trigger a full re-render and context update, you might need to call a logout function
-        // from your AuthContext here, or simply redirect.
-        // For simplicity now, just redirect. Ensure this doesn't cause redirect loops.
-        if (window.location.pathname !== '/login') { // Avoid redirect loop if already on login
-            window.location.href = '/login'; // Hard redirect to login
-        }
-
-        // Option 2: Implement token refresh logic here (more advanced)
-        // This would involve an API call to a refresh token endpoint.
-      }
     } else if (error.request) {
-      // The request was made but no response was received
-      console.error('API No Response:', error.request);
+      // Handle network errors (request was made but no response received)
+      console.error('API Network Error: No response received.', error.request);
     } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('API Error:', error.message);
+      // Handle other kinds of errors
+      console.error('API Setup Error:', error.message);
     }
-    return Promise.reject(error); // Important to reject the promise so calling code can catch it
+
+    // IMPORTANT: Always reject the promise so that the code that made the original
+    // API call (e.g., in a component) can still use .catch() to handle the error locally.
+    return Promise.reject(error);
   }
 );
 
