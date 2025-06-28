@@ -1,13 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MenuCategories from './MenuCategories';
 
 function Dashboard() {
   // Get user, token, logoutAction, and isAuthenticated from useAuth()
   const { user, token, logoutAction, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logoutAction();
+    navigate('/login');
   };
 
   // This check is still good, App.jsx routing should also protect this route

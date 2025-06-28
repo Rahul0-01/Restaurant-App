@@ -36,5 +36,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 
     Optional<Order> findByPublicTrackingId(String publicTrackingId);
+    @Query("SELECT COALESCE(SUM(o.totalPrice), 0) FROM Order o WHERE o.status = 'PAID' AND o.orderTime >= :startOfDay")
+    BigDecimal findTodaysRevenue(@Param("startOfDay") LocalDateTime startOfDay);
 
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.orderTime >= :startOfDay")
+    long countTodaysOrders(@Param("startOfDay") LocalDateTime startOfDay);
 }

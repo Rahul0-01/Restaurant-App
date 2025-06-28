@@ -41,7 +41,21 @@ public class OrderService {
 
         Order newOrder = new Order();
         newOrder.setRestaurantTable(table);
-        newOrder.setStatus(OrderStatus.PENDING);
+
+
+        if (orderRequestDTO.getPaymentType() == null || orderRequestDTO.getPaymentType() == PaymentType.ONLINE) {
+            // If payment type is ONLINE or not specified, default to PENDING for the online payment flow.
+            newOrder.setStatus(OrderStatus.PENDING);
+        } else if (orderRequestDTO.getPaymentType() == PaymentType.PAY_AT_COUNTER) {
+            // If paying at the counter, set the status directly to UNPAID.
+            newOrder.setStatus(OrderStatus.UNPAID);
+        } else {
+            // This case should ideally not be hit if you use the enum, but it's good practice.
+            throw new InvalidRequestException("Invalid payment type specified.");
+        }
+// --------------------------------------------------------
+
+
         newOrder.setNotes(orderRequestDTO.getNotes());
 
         for (OrderItemRequestDTO itemDto : orderRequestDTO.getItems()) {
@@ -151,6 +165,7 @@ public class OrderService {
     private OrderResponseDTO mapOrderToResponseDTO(Order order) {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());
+        dto.setPublicTrackingId(order.getPublicTrackingId());
         if (order.getRestaurantTable() != null) {
             dto.setTableId(order.getRestaurantTable().getId());
             dto.setTableNumber(order.getRestaurantTable().getTableNumber());

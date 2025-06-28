@@ -1,5 +1,6 @@
 package com.restaurant.restaurantapp.DTO;
 
+import com.restaurant.restaurantapp.model.PaymentType;
 import lombok.Data;
 import java.util.List;
 
@@ -10,6 +11,7 @@ public class OrderRequestDTO {
     private Long tableId;
     private List<OrderItemRequestDTO> items;
     private String notes;
+    private PaymentType paymentType;
 
 
 }

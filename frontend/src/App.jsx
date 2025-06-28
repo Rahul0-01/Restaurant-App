@@ -12,7 +12,7 @@ import CustomerMenuPage from './components/CustomerMenuPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderStatusPage from './components/OrderStatusPage';
 import OrderManagementPage from './components/OrderManagementPage';
-import AdminDashboardPlaceholder from './components/AdminDashboardPlaceholder';
+import AdminDashboard from './components/AdminDashboard';
 import AdminManageCategories from './components/AdminManageCategories';
 import AdminManageDishes from './components/AdminManageDishes';
 import AdminManageTables from './components/AdminManageTables';
@@ -67,7 +67,7 @@ function App() {
 
             {/* Admin-Only Routes (further protected by AdminRoute component) */}
             <Route element={<AdminRoute />}>
-              <Route path="/admin/dashboard" element={<AdminDashboardPlaceholder />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/categories" element={<AdminManageCategories />} />
               <Route path="/admin/dishes" element={<AdminManageDishes />} />
               <Route path="/admin/tables" element={<AdminManageTables />} />
