@@ -1,15 +1,16 @@
 package com.restaurant.restaurantapp.model; // Ensure this matches your package structure
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 
 import java.math.BigDecimal;
+import com.restaurant.restaurantapp.model.OrderItemStatus;
 
 @Entity // Mark this class as a JPA entity
 @Table(name = "order_items") // Map to the "order_items" table
 @Data // Lombok: Generate getters, setters, etc.
+@NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(exclude = {"order", "dish"}) // Exclude relationships from equals/hashCode
 @ToString(exclude = {"order", "dish"}) // Exclude relationships from toString
 public class OrderItem {
@@ -42,4 +43,8 @@ public class OrderItem {
     private BigDecimal price; // Price PER UNIT of the dish *at the time the order was placed*
     // Important: Store this here in case the Dish price changes later!
 
-   }
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderItemStatus itemStatus = OrderItemStatus.NEEDS_PREPARATION;
+
+}

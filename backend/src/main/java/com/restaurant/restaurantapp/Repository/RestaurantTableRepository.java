@@ -58,4 +58,6 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     List<RestaurantTable> findByCapacityGreaterThanEqual(int minCapacity);
 
     boolean existsByTableNumber(String tableNumber);
+
+    List<RestaurantTable> findByAssistanceRequested(boolean requested);
 }

@@ -1,4 +1,4 @@
-package com.restaurant.restaurantapp.DTO; // Correct package name (use lowercase dto if refactored)
+package com.restaurant.restaurantapp.DTO;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,9 +11,12 @@ public class TableDTO {
 
     private Long id;
     private String tableNumber;
-    private String qrCodeIdentifier; // ADDED - Usually needed, even if just for admin
+    private String qrCodeIdentifier;
     private String status;
     private Integer capacity;
-    // Keep capacity out for now unless the client specifically needs it
 
+    // --- NEW FIELD ---
+    // This will be true if a customer has pressed the "Call Waiter" button.
+    private boolean assistanceRequested; 
+    
 }

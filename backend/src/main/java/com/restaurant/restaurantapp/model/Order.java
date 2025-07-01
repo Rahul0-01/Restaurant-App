@@ -32,7 +32,7 @@ public class Order {
     private RestaurantTable restaurantTable;
     // ----------------------------------------------------
 
-    @Column(name = "razorpay_order_id", length = 100, unique = true) // Make it unique if one Razorpay order maps to one app order
+    @Column(name = "razorpay_order_id", length = 100, unique = true)
     private String razorpayOrderId;
 
     @Column
@@ -41,9 +41,9 @@ public class Order {
     @Column(nullable = false, updatable = false) // Order time shouldn't be null and shouldn't be changed after creation
     private LocalDateTime orderTime; // Stores the exact date and time the order was placed
 
-    @Enumerated(EnumType.STRING) // Store the enum constant's *name* (e.g., "PENDING") in the database
+    @Enumerated(EnumType.STRING) // Store the enum constant's *name* (e.g., "OPEN") in the database
     @Column(nullable = false, length = 30) // Status column must exist and have sufficient length for enum names
-    private OrderStatus status = OrderStatus.PENDING; // Default status for a new order is PENDING
+    private OrderStatus status = OrderStatus.OPEN; // Default status for a new order is OPEN
 
     @Column(precision = 10, scale = 2) // For storing currency accurately (e.g., DECIMAL(10, 2))
     private BigDecimal totalPrice = BigDecimal.ZERO; // The calculated total price of all items in the order. Initialize to 0.
@@ -63,8 +63,8 @@ public class Order {
             // do the same for its associated OrderItems.
             orphanRemoval = true,         // If an OrderItem is removed from this 'items' list,
             // delete it from the database as it's now an "orphan".
-            fetch = FetchType.EAGER       // EAGER: Load all OrderItems when loading the Order.
-            // Can be simple, but consider LAZY for orders with many items.
+            fetch = FetchType.LAZY       
+           
     )
     private List<OrderItem> items = new ArrayList<>(); // The list holding the actual items (dishes + quantity) for this order.
     // Initialize to prevent NullPointerExceptions.

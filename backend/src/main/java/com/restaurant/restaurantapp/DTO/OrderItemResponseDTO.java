@@ -2,6 +2,7 @@ package com.restaurant.restaurantapp.DTO;
 
 import lombok.Data;
 import java.math.BigDecimal;
+import com.restaurant.restaurantapp.model.OrderItemStatus;
 
 @Data // Lombok
 public class OrderItemResponseDTO {
@@ -12,4 +13,5 @@ public class OrderItemResponseDTO {
     private int quantity;
     private BigDecimal price; // Price per unit at time of order
     private BigDecimal lineItemTotal; // Calculated: quantity * price
+    private OrderItemStatus itemStatus;
 }

@@ -24,5 +24,7 @@ public class RestaurantTable {
     @Column(unique = true) // Ensure QR code identifier is unique
     private String qrCodeIdentifier; // e.g., a unique string for the QR code link
 
+    @Column(nullable = false)
+    private boolean assistanceRequested = false;
 
 }

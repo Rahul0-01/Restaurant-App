@@ -1,42 +1,46 @@
-// src/App.jsx - NEW AND IMPROVED VERSION
+// src/App.jsx - FINAL AND CORRECTED VERSION
 import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// --- All Your Component Imports ---
 import Login from './components/Login';
 import RegisterPage from './components/RegisterPage';
 import AdminLayout from './components/AdminLayout';
 import AdminRoute from './components/AdminRoute';
 import CustomerMenuPage from './components/CustomerMenuPage';
-import OrderSuccessPage from './components/OrderSuccessPage';
+import PaymentSuccessPage from './components/PaymentSuccessPage';
 import OrderStatusPage from './components/OrderStatusPage';
 import OrderManagementPage from './components/OrderManagementPage';
 import AdminDashboard from './components/AdminDashboard';
 import AdminManageCategories from './components/AdminManageCategories';
 import AdminManageDishes from './components/AdminManageDishes';
 import AdminManageTables from './components/AdminManageTables';
+import FinalBillPage from './components/FinalBillPage';
+import ServicePortalPage from './components/ServicePortalPage';
+import NotFoundPage from './components/NotFoundPage';
 
 import { useAuth } from './context/AuthContext';
 import './App.css';
 
-// This component's only job is to protect routes.
-// If the user is authenticated, it shows the page (via <Outlet />).
-// If not, it redirects them to the login page.
-const ProtectedRoutes = () => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+
+// --- Helper Wrapper Component for Protected Routes ---
+const ProtectedRouteWrapper = () => {
+    const { isAuthenticated } = useAuth();
+    // If the user is authenticated, AdminLayout is rendered, which contains an <Outlet />
+    // for the child routes to be displayed in.
+    // If not, they are redirected to login.
+    return isAuthenticated ? <AdminLayout /> : <Navigate to="/login" replace />;
 };
 
 function App() {
-  const { loadingAuth } = useAuth(); // Assuming you have loadingAuth from your context
+  const { loadingAuth } = useAuth();
 
-  // Show a loading screen while the AuthContext determines the initial auth state.
-  // This prevents screen flicker or premature redirects.
   if (loadingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg font-medium text-gray-700">Loading Application...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg">Loading Application...</p>
       </div>
     );
   }
@@ -45,44 +49,32 @@ function App() {
     <>
       <ToastContainer position="top-right" autoClose={4000} theme="light" />
       <Routes>
-        {/* === PUBLIC ROUTES === */}
-        {/* These routes are always accessible to everyone, logged in or not. */}
-        <Route path="/menu/:qrCodeIdentifier" element={<CustomerMenuPage />} />
-        <Route path="/order-success" element={<OrderSuccessPage />} />
-        <Route path="/order-status/:publicTrackingId" element={<OrderStatusPage />} />
-
-        {/* --- Public-Only Routes (like Login/Register) --- */}
-        {/* We will handle the "redirect if already logged in" inside the Login component itself,
-            which is a more stable pattern. */}
+        {/* === PUBLIC ROUTES (Accessible to everyone) === */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<RegisterPage />} />
-        
-        {/* === PROTECTED ROUTES === */}
-        {/* All routes nested under this element will be protected. */}
-        <Route element={<ProtectedRoutes />}>
-          {/* The AdminLayout provides the sidebar and overall structure for authenticated users. */}
-          <Route element={<AdminLayout />}>
-            {/* Staff & Admin Routes */}
-            <Route path="/orders" element={<OrderManagementPage />} />
+        <Route path="/menu/:qrCodeIdentifier" element={<CustomerMenuPage />} />
+        <Route path="/payment-successful" element={<PaymentSuccessPage />} />
+        <Route path="/order-status/:publicTrackingId" element={<OrderStatusPage />} />
+        <Route path="/bill/:publicTrackingId" element={<FinalBillPage />} />
 
-            {/* Admin-Only Routes (further protected by AdminRoute component) */}
-            <Route element={<AdminRoute />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/categories" element={<AdminManageCategories />} />
-              <Route path="/admin/dishes" element={<AdminManageDishes />} />
-              <Route path="/admin/tables" element={<AdminManageTables />} />
-            </Route>
-
-            {/* Default redirect for authenticated users who land on "/" */}
-            {/* The logic for which dashboard to show can be inside AdminLayout or here */}
-            <Route path="/" element={<Navigate to="/orders" replace />} />
-            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-          </Route>
+        {/* === PROTECTED ROUTES (Require Authentication) === */}
+        {/* All authenticated routes are nested inside this wrapper */}
+        <Route element={<ProtectedRouteWrapper />}>
+          <Route path="/orders" element={<OrderManagementPage />} />
+          <Route path="/service" element={<ServicePortalPage />} />
+          
+          {/* Admin-Only Routes */}
+          <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/categories" element={<AdminRoute><AdminManageCategories /></AdminRoute>} />
+          <Route path="/admin/dishes" element={<AdminRoute><AdminManageDishes /></AdminRoute>} />
+          <Route path="/admin/tables" element={<AdminRoute><AdminManageTables /></AdminRoute>} />
+          
+          {/* Default redirect for authenticated users */}
+          <Route path="/" element={<Navigate to="/orders" replace />} />
         </Route>
 
-        {/* Catch-all for any other route - redirect to the root */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-
+        {/* Catch-all for any route that doesn't exist */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   );

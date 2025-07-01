@@ -80,47 +80,43 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Uses your defined CorsConfigurationSource
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        // --- PUBLIC AUTHENTICATION & REGISTRATION ---
-                        .requestMatchers("/api/auth/**").permitAll() // Covers /login, /register
-
-                        // --- PUBLIC CUSTOMER-FACING MENU & TABLE LOOKUP ---
+                        // --- PUBLIC ENDPOINTS (Rules that should be checked first) ---
+                        .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tables/qr/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/menu/**").permitAll() // Covers categories & dishes for viewing
+                        .requestMatchers(HttpMethod.GET, "/api/menu/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/table/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/orders").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/orders/{orderId}/items").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/request-bill").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/tables/{tableId}/assistance").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/status/**").permitAll()
 
-                        // --- PUBLIC CUSTOMER ORDERING & PAYMENT FLOW ---
-                        .requestMatchers(HttpMethod.POST, "/api/orders").permitAll() // Customer places initial PENDING order
-                        .requestMatchers(HttpMethod.POST, "/api/payments/create-razorpay-order").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/payments/verify-payment").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/orders/status/**").permitAll() // Customer checks their order status
+                        // --- STAFF & ADMIN SHARED ENDPOINTS ---
+                        // This specific DELETE rule must come before the general /api/tables/** rules
+                        .requestMatchers(HttpMethod.DELETE, "/api/tables/{tableId}/assistance").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/**").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/order-items/**").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers("/api/service/**").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/tables", "/api/tables/**").hasAnyRole("STAFF", "ADMIN") // Staff can view tables
 
-                        // --- ADMIN ONLY: Menu Management (Categories & Dishes CRUD) ---
-                        // Assuming /api/menu/categories and /api/menu/dishes are the base paths for these
-                        .requestMatchers(HttpMethod.POST, "/api/menu/categories", "/api/menu/categories/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/menu/categories/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/menu/categories/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/menu/dishes", "/api/menu/dishes/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/menu/dishes/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/menu/dishes/**").hasRole("ADMIN")
+                        // --- ADMIN ONLY ENDPOINTS (Most restrictive, checked after shared roles) ---
+                        .requestMatchers(HttpMethod.POST, "/api/menu/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/menu/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/menu/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/tables").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/tables/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/tables/{tableId}").hasRole("ADMIN") // For deleting a whole table
 
-                        // --- ADMIN ONLY: Table Management (Full CRUD) ---
-                        .requestMatchers("/api/tables", "/api/tables/**").hasRole("ADMIN") // Simplifies if all /api/tables mutations are ADMIN only
-                        // If staff needs to GET tables, that was covered by permitAll to /api/menu/** assuming it included tables,
-                        // or you'd need a specific GET rule for STAFF here if it's separate from /api/menu/**
-
-                        // --- STAFF & ADMIN: Order Management (Viewing list, specific order, updating status) ---
-                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("STAFF", "ADMIN")          // List all orders
-                        .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").hasAnyRole("STAFF", "ADMIN") // Get specific order
-                        .requestMatchers(HttpMethod.PUT, "/api/orders/{orderId}/status").hasAnyRole("STAFF", "ADMIN") // Update order status
-                        // Add other order management PUT/POST specific to staff/admin if any (e.g., cancel)
-
-                        // --- Any other request must be authenticated ---
+                        // --- CATCH-ALL: Any other request must be authenticated ---
                         .anyRequest().authenticated()
                 )
-                .authenticationProvider(authenticationProvider()) // Make sure you have this bean defined
-                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class); // Your JWT filter
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
