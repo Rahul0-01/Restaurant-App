@@ -32,5 +32,6 @@ public class CustomerOrderStatusDto {
         private String dishName;
         private int quantity;
         private BigDecimal pricePerItem;
+        private BigDecimal lineItemTotal;
     }
 }

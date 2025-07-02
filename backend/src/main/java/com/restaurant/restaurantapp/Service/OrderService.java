@@ -31,11 +31,9 @@ public class OrderService {
     private final DishRepository dishRepository;
     private final RestaurantTableRepository tableRepository;
     private final OrderItemRepository orderItemRepository;
+    private final WebSocketService webSocketService; // <<< Correctly Injected
 
-    /**
-     * This private helper method contains the logic for adding items to an order.
-     * It's used by both startNewOrder and addItemsToExistingOrder.
-     */
+    // This is the private helper method for adding items to an order.
     private void addItemsToOrderEntity(Order order, List<OrderItemRequestDTO> itemsToAdd) {
         if (itemsToAdd == null || itemsToAdd.isEmpty()) {
             throw new InvalidRequestException("Item list cannot be empty.");
@@ -47,15 +45,21 @@ public class OrderService {
                 throw new InvalidRequestException("Dish '" + dish.getName() + "' is unavailable.");
             }
 
-            OrderItem orderItem = new OrderItem();
-            orderItem.setDish(dish);
-            orderItem.setQuantity(itemDto.getQuantity());
-            orderItem.setPrice(dish.getPrice()); // Price at the time of order
-            orderItem.setItemStatus(OrderItemStatus.NEEDS_PREPARATION);
-
-            // Use the smart method from your Order entity. It handles relationships and price calculation.
-            order.addItem(orderItem);
+            Optional<OrderItem> existingItemOpt = order.findItemByDishId(dish.getId());
+            if (existingItemOpt.isPresent()) {
+                OrderItem existingItem = existingItemOpt.get();
+                int newQuantity = existingItem.getQuantity() + itemDto.getQuantity();
+                existingItem.setQuantity(newQuantity);
+            } else {
+                OrderItem orderItem = new OrderItem();
+                orderItem.setDish(dish);
+                orderItem.setQuantity(itemDto.getQuantity());
+                orderItem.setPrice(dish.getPrice());
+                orderItem.setItemStatus(OrderItemStatus.NEEDS_PREPARATION);
+                order.addItem(orderItem);
+            }
         }
+        order.recalculateTotalPrice();
     }
 
     public OrderResponseDTO startNewOrder(OrderRequestDTO orderRequestDTO) {
@@ -71,11 +75,8 @@ public class OrderService {
         newOrder.setRestaurantTable(table);
         newOrder.setStatus(OrderStatus.OPEN);
         newOrder.setNotes(orderRequestDTO.getNotes());
-
         addItemsToOrderEntity(newOrder, orderRequestDTO.getItems());
-
         Order savedOrder = orderRepository.save(newOrder);
-        log.info("New tab started with Order ID: {}", savedOrder.getId());
         return mapOrderToResponseDTO(savedOrder);
     }
 
@@ -83,24 +84,16 @@ public class OrderService {
         log.info("Adding {} item(s) to existing order ID: {}", itemsToAdd.size(), orderId);
         Order existingOrder = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
-
         if (existingOrder.getStatus() != OrderStatus.OPEN) {
             throw new InvalidRequestException("Cannot add items to an order that is not OPEN.");
         }
-
         addItemsToOrderEntity(existingOrder, itemsToAdd);
-
         Order savedOrder = orderRepository.save(existingOrder);
-        log.info("Order (tab) ID: {} updated.", savedOrder.getId());
         return mapOrderToResponseDTO(savedOrder);
     }
 
-    // All your other methods, which are already well-written, can now be included.
-    // I am including them all below for a complete, copy-pasteable file.
-
     @Transactional(readOnly = true)
     public Optional<OrderResponseDTO> getActiveOrderForTable(Long tableId) {
-        log.debug("Checking for active 'OPEN' order for table ID: {}", tableId);
         return orderRepository.findByRestaurantTableIdAndStatus(tableId, OrderStatus.OPEN)
                 .map(this::mapOrderToResponseDTO);
     }
@@ -133,18 +126,37 @@ public class OrderService {
         return mapOrderToCustomerStatusDTO(order);
     }
 
+    // --- THIS METHOD IS NOW ENHANCED ---
     public OrderResponseDTO updateOrderStatus(Long orderId, OrderStatus newStatus) {
-        Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
+        log.info("Updating order status for ID {} to {}", orderId, newStatus);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
         order.setStatus(newStatus);
         Order updatedOrder = orderRepository.save(order);
-        return mapOrderToResponseDTO(updatedOrder);
+        OrderResponseDTO responseDto = mapOrderToResponseDTO(updatedOrder);
+
+        // Send a WebSocket message to the customer's bill page when payment is completed offline
+        if (newStatus == OrderStatus.COMPLETED) {
+            webSocketService.sendOrderStatusUpdate(updatedOrder.getPublicTrackingId(), responseDto);
+        }
+
+        return responseDto;
     }
 
+    // --- THIS METHOD IS NOW ENHANCED ---
     public OrderItemResponseDTO updateOrderItemStatus(Long itemId, OrderItemStatus newStatus) {
-        OrderItem item = orderItemRepository.findById(itemId).orElseThrow(() -> new ResourceNotFoundException("Order item not found with ID: " + itemId));
+        log.info("Updating order item status for ID {} to {}", itemId, newStatus);
+        OrderItem item = orderItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order item not found with ID: " + itemId));
         item.setItemStatus(newStatus);
-        OrderItem updated = orderItemRepository.save(item);
-        return mapOrderItemToResponseDTO(updated);
+        OrderItem updatedItem = orderItemRepository.save(item);
+        OrderItemResponseDTO responseDto = mapOrderItemToResponseDTO(updatedItem);
+
+        // Send a WebSocket message to the customer's menu page with the updated item
+        String publicTrackingId = updatedItem.getOrder().getPublicTrackingId();
+        webSocketService.sendOrderStatusUpdate(publicTrackingId, responseDto);
+
+        return responseDto;
     }
 
     public OrderResponseDTO requestBill(Long orderId) {
@@ -157,7 +169,6 @@ public class OrderService {
         return mapOrderToResponseDTO(updated);
     }
 
-    // In OrderService.java
     public List<KitchenOrderItemDTO> getKitchenOrders() {
         return orderItemRepository.findByItemStatusIn(
                 List.of(OrderItemStatus.NEEDS_PREPARATION, OrderItemStatus.IN_PROGRESS)
@@ -170,31 +181,15 @@ public class OrderService {
         tableRepository.save(table);
     }
 
-
     @Transactional(readOnly = true)
     public ServiceTasksDTO getServiceTasks() {
-        log.info("Gathering all tasks for the Service Portal.");
-
-        // 1. Fetch items that are READY
+        // ... your existing getServiceTasks logic is correct ...
         List<OrderItem> readyItems = orderItemRepository.findByItemStatusIn(List.of(OrderItemStatus.READY));
-        List<KitchenOrderItemDTO> readyItemsDto = readyItems.stream()
-                .map(this::mapItemToKitchenDTO)
-                .collect(Collectors.toList());
-
-        // 2. Fetch tables that need assistance
+        List<KitchenOrderItemDTO> readyItemsDto = readyItems.stream().map(this::mapItemToKitchenDTO).collect(Collectors.toList());
         List<RestaurantTable> assistanceTables = tableRepository.findByAssistanceRequested(true);
-        // We need a mapper for Table to TableDTO, let's assume you have one or create a simple one
-        List<TableDTO> assistanceTablesDto = assistanceTables.stream()
-                .map(this::mapTableToDto) // Assuming this mapper method exists
-                .collect(Collectors.toList());
-
-        // 3. Fetch orders that are awaiting payment
+        List<TableDTO> assistanceTablesDto = assistanceTables.stream().map(this::mapTableToDto).collect(Collectors.toList());
         List<Order> paymentOrders = orderRepository.findByStatus(OrderStatus.AWAITING_PAYMENT);
-        List<OrderResponseDTO> paymentOrdersDto = paymentOrders.stream()
-                .map(this::mapOrderToResponseDTO)
-                .collect(Collectors.toList());
-
-        // 4. Combine them into our container DTO and return
+        List<OrderResponseDTO> paymentOrdersDto = paymentOrders.stream().map(this::mapOrderToResponseDTO).collect(Collectors.toList());
         return new ServiceTasksDTO(readyItemsDto, assistanceTablesDto, paymentOrdersDto);
     }
 
@@ -226,8 +221,12 @@ public class OrderService {
         dto.setTotalPrice(order.getTotalPrice());
         dto.setItems(order.getItems().stream()
                 .map(item -> new CustomerOrderStatusDto.OrderItemSimpleDto(
-                        item.getDish().getName(), item.getQuantity(), item.getPrice()
-                )).collect(Collectors.toList()));
+                        item.getDish().getName(),
+                        item.getQuantity(),
+                        item.getPrice(), // The price of a single item
+                        item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())) // The calculated total for the line
+                ))
+                .collect(Collectors.toList()));
         return dto;
     }
 

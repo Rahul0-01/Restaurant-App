@@ -3,11 +3,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import apiClient from '../services/apiService';
+import { useWebSocket } from '../hooks/useWebSocket';// Import the new hook
+
+// Helper to format status text nicely (e.g., NEEDS_PREPARATION -> Needs Preparation)
+const formatStatus = (status) => {
+    if (!status) return 'Pending...';
+    return status.replace('_', ' ').toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+};
 
 function CustomerMenuPage() {
     const { qrCodeIdentifier } = useParams();
     const navigate = useNavigate();
 
+    // --- STATE MANAGEMENT ---
     const [tableInfo, setTableInfo] = useState(null);
     const [categories, setCategories] = useState([]);
     const [allDishes, setAllDishes] = useState([]);
@@ -20,6 +28,29 @@ function CustomerMenuPage() {
     const [isCallingWaiter, setIsCallingWaiter] = useState(false);
     const [waiterCalled, setWaiterCalled] = useState(false);
 
+    // --- REAL-TIME LOGIC ---
+    // This hook will listen for messages on the channel for our active order.
+    const lastMessage = useWebSocket(activeOrder?.publicTrackingId);
+
+    // This new useEffect runs ONLY when a new message arrives from the WebSocket.
+    useEffect(() => {
+        if (lastMessage && lastMessage.itemStatus) { // Check if it's an item status update
+            toast.info(`Update: Your ${lastMessage.dishName} is now ${formatStatus(lastMessage.itemStatus)}!`);
+            
+            // Update the local state to show the new status instantly
+            setActiveOrder(currentOrder => {
+                if (!currentOrder) return null; // Safety check
+                
+                const updatedItems = currentOrder.items.map(item =>
+                    item.id === lastMessage.id ? { ...item, itemStatus: lastMessage.itemStatus } : item
+                );
+                
+                return { ...currentOrder, items: updatedItems };
+            });
+        }
+    }, [lastMessage]); // Dependency array ensures this only runs when 'lastMessage' changes
+
+    // --- DATA FETCHING ---
     useEffect(() => {
         const fetchAllData = async () => {
             if (!qrCodeIdentifier) {
@@ -27,39 +58,31 @@ function CustomerMenuPage() {
                 setIsLoading(false);
                 return;
             }
-
             setIsLoading(true);
             setError(null);
-
             try {
                 const [tableResponse, categoriesResponse, dishesResponse] = await Promise.all([
                     apiClient.get(`/tables/qr/${qrCodeIdentifier}`),
                     apiClient.get('/menu/categories'),
                     apiClient.get('/menu/dishes?availableOnly=true')
                 ]);
-
                 const currentTableInfo = tableResponse.data;
                 setTableInfo(currentTableInfo);
                 const categoriesData = categoriesResponse.data?.content || [];
                 setCategories(categoriesData);
                 const allDishesData = dishesResponse.data?.content || dishesResponse.data || [];
                 setAllDishes(allDishesData);
-
                 if (categoriesData.length > 0) {
                     setSelectedCategoryId(categoriesData[0].id);
                 }
-
                 if (currentTableInfo.id) {
                     try {
                         const activeOrderRes = await apiClient.get(`/orders/table/${currentTableInfo.id}/active`);
                         setActiveOrder(activeOrderRes.data);
                     } catch (orderError) {
                         if (orderError.response && orderError.response.status === 404) {
-                            console.log("No active order found. Ready for a new tab.");
                             setActiveOrder(null);
-                        } else {
-                            throw orderError;
-                        }
+                        } else { throw orderError; }
                     }
                 }
             } catch (err) {
@@ -84,7 +107,6 @@ function CustomerMenuPage() {
         try {
             const itemsPayload = [{ dishId: dish.id, quantity: 1 }];
             let updatedOrder;
-
             if (!activeOrder) {
                 const newOrderPayload = { tableId: tableInfo.id, items: itemsPayload };
                 const res = await apiClient.post('/orders', newOrderPayload);
@@ -120,7 +142,7 @@ function CustomerMenuPage() {
         if (!tableInfo?.id || waiterCalled) return;
         setIsCallingWaiter(true);
         try {
-            await apiClient.post(`/tables/${tableInfo.id}/assistance`);
+            await apiClient.post(`/tables/${tableInfo.id}/assistance`, { requested: true });
             setWaiterCalled(true);
             toast.success('A staff member has been notified.');
             setTimeout(() => setWaiterCalled(false), 30000);
@@ -188,11 +210,17 @@ function CustomerMenuPage() {
                                 <div className="text-center py-8"><p className="text-sm text-gray-500">Your tab is empty. Add an item to get started!</p></div>
                             ) : (
                                 <>
-                                    <div className="space-y-3 mb-6 max-h-80 overflow-y-auto pr-2">
+                                    <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-2">
                                         {activeOrder.items.map(item => (
-                                            <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
-                                                <div className="flex-1 mr-2"><h4 className="text-sm font-medium text-gray-700 truncate">{item.quantity} x {item.dishName}</h4></div>
-                                                <div className="ml-2 w-20 text-right text-sm font-medium text-gray-800">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.lineItemTotal)}</div>
+                                            <div key={item.id} className="pb-3 border-b last:border-b-0">
+                                                <div className="flex justify-between items-start">
+                                                    <h4 className="text-sm font-medium text-gray-800 flex-1 pr-2">{item.quantity} x {item.dishName}</h4>
+                                                    <p className="text-sm font-medium text-gray-900">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.lineItemTotal)}</p>
+                                                </div>
+                                                {/* THIS IS THE NEW PART TO DISPLAY THE LIVE STATUS */}
+                                                <p className="text-xs text-blue-600 font-semibold mt-1">
+                                                    Status: {formatStatus(item.itemStatus)}
+                                                </p>
                                             </div>
                                         ))}
                                     </div>

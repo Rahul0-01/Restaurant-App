@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime; // Modern Java Date/Time API
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Entity // Mark this class as a JPA entity (maps to a database table)
@@ -136,6 +137,13 @@ public class Order {
                 .reduce(BigDecimal.ZERO, BigDecimal::add); // 'reduce' performs the summation
     }
     // ---------------------------------------------------------
-
+    public Optional<OrderItem> findItemByDishId(Long dishId) {
+        if (this.items == null) {
+            return Optional.empty();
+        }
+        return this.items.stream()
+                .filter(item -> item.getDish() != null && item.getDish().getId().equals(dishId))
+                .findFirst();
+    }
    //-------------------------------------------------------------------
 }

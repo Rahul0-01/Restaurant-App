@@ -1,11 +1,15 @@
+// src/components/FinalBillPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import apiClient from '../services/apiService';
+import { useWebSocket } from '../hooks/useWebSocket';// Import the WebSocket hook
 
 function FinalBillPage() {
   const { publicTrackingId } = useParams();
   const navigate = useNavigate();
+
+  // --- STATE MANAGEMENT ---
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,8 +17,34 @@ function FinalBillPage() {
   const [paymentError, setPaymentError] = useState(null);
   const [offlineConfirmed, setOfflineConfirmed] = useState(false);
 
+  // --- REAL-TIME LISTENER ---
+  // This hook connects to the WebSocket and listens for messages on this order's channel.
+  const lastMessage = useWebSocket(publicTrackingId);
+
+  // This useEffect runs whenever a new message arrives from the WebSocket.
+  useEffect(() => {
+    if (lastMessage) {
+        // We check if the message is an order update and if the new status is COMPLETED.
+        if (lastMessage.status && lastMessage.status === 'COMPLETED') {
+            console.log("WebSocket received 'COMPLETED' status update. Navigating to success page.");
+            toast.success("Your payment has been confirmed by staff!");
+            
+            // Navigate to the final success page.
+            // A small delay lets the user see the toast message before the page changes.
+            setTimeout(() => {
+                navigate('/payment-successful', { 
+                    replace: true, 
+                    state: { orderDetails: lastMessage } 
+                });
+            }, 500);
+        }
+    }
+  }, [lastMessage, navigate]); // This effect depends on 'lastMessage'.
+
+  // --- INITIAL DATA FETCH ---
   useEffect(() => {
     async function fetchOrder() {
+      if (!publicTrackingId) return;
       setIsLoading(true);
       setError(null);
       try {
@@ -26,48 +56,39 @@ function FinalBillPage() {
         setIsLoading(false);
       }
     }
-    if (publicTrackingId) fetchOrder();
+    fetchOrder();
   }, [publicTrackingId]);
 
-  // Razorpay payment handler
+  // --- EVENT HANDLERS ---
   const handlePayOnline = async () => {
     if (!order) return;
     setIsProcessingPayment(true);
     setPaymentError(null);
     try {
-      // 1. Create Razorpay order on backend
       const createRazorpayOrderRequest = {
         amount: order.totalPrice,
         currency: 'INR',
-        receipt: order.internalOrderId?.toString() || order.id?.toString(),
+        receipt: order.internalOrderId?.toString(),
       };
       const razorpayOrderResponse = await apiClient.post('/payments/create-razorpay-order', createRazorpayOrderRequest);
       const rzpOrderData = razorpayOrderResponse.data;
-      // 2. Open Razorpay modal
+      
       const options = {
         key: rzpOrderData.razorpayKeyId,
         amount: rzpOrderData.amountInPaise.toString(),
         currency: rzpOrderData.currency,
         name: 'Your Restaurant Name',
-        description: `Order #${order.internalOrderId || order.id}`,
+        description: `Order #${order.internalOrderId}`,
         order_id: rzpOrderData.razorpayOrderId,
         handler: async (response) => {
           try {
-            const verificationPayload = { internalOrderId: order.internalOrderId || order.id, ...response };
+            const verificationPayload = { internalOrderId: order.internalOrderId, ...response };
             const verifyResponse = await apiClient.post('/payments/verify-payment', verificationPayload);
             if (verifyResponse.data && verifyResponse.data.success) {
-    
-              // --- THE TIMEOUT TRICK ---
-              // This is the same fix we used before to solve the race condition.
               setTimeout(() => {
-                  navigate('/payment-successful', { 
-                      replace: true, 
-                      state: { orderDetails: verifyResponse.data } 
-                  });
-              }, 0); // Delay of 0 is all that's needed.
-          
-          }
-          else {
+                navigate('/payment-successful', { replace: true, state: { orderDetails: verifyResponse.data } });
+              }, 0);
+            } else {
               throw new Error(verifyResponse.data?.message || 'Payment verification failed.');
             }
           } catch (verifyError) {
@@ -85,7 +106,7 @@ function FinalBillPage() {
             }
           }
         },
-        notes: { internal_order_id: (order.internalOrderId || order.id)?.toString() },
+        notes: { internal_order_id: order.internalOrderId?.toString() },
         theme: { color: '#4F46E5' }
       };
       const rzp1 = new window.Razorpay(options);
@@ -104,12 +125,13 @@ function FinalBillPage() {
     }
   };
 
-  // Offline payment confirmation
   const handlePayAtCounter = () => {
     setOfflineConfirmed(true);
+    toast.info("Please proceed to the counter to pay.");
   };
 
-  // Loading state
+  // --- RENDER LOGIC ---
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-100">
@@ -118,7 +140,6 @@ function FinalBillPage() {
     );
   }
 
-  // Error state
   if (error || !order) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-100 p-4">
@@ -131,36 +152,31 @@ function FinalBillPage() {
     );
   }
 
-  // If already paid, show receipt only
   if (order.status === 'COMPLETED') {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center py-8">
         <div className="max-w-2xl w-full px-4">
           <header className="text-center mb-8">
             <h1 className="text-4xl font-extrabold text-slate-800">Receipt</h1>
-            <p className="text-lg text-slate-500 mt-2">Order #{order.internalOrderId || order.id}</p>
+            <p className="text-lg text-slate-500 mt-2">Order #{order.internalOrderId}</p>
           </header>
           <main className="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
             <h2 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-4">Order Summary</h2>
             <div className="space-y-4 mb-6">
-              {order.items && order.items.map((item, index) => (
+              {order.items?.map((item, index) => (
                 <div key={index} className="flex items-baseline justify-between">
                   <div>
                     <p className="font-medium text-slate-700">{item.dishName}</p>
                     <p className="text-sm text-slate-500">Qty: {item.quantity}</p>
                   </div>
-                  <p className="text-slate-800 font-medium">
-                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.price * item.quantity)}
-                  </p>
+                  <p className="text-slate-800 font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.lineItemTotal)}</p>
                 </div>
               ))}
             </div>
             <div className="border-t-2 border-dashed border-gray-200 mt-6 pt-6">
               <div className="flex justify-between items-center text-lg font-semibold text-slate-800 mb-6">
                 <span>Total Amount</span>
-                <span className="text-2xl font-bold text-indigo-700">
-                  {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(order.totalPrice)}
-                </span>
+                <span className="text-2xl font-bold text-indigo-700">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(order.totalPrice)}</span>
               </div>
             </div>
             <div className="mt-8 text-center">
@@ -172,35 +188,30 @@ function FinalBillPage() {
     );
   }
 
-  // Main bill & payment UI
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-8">
       <div className="max-w-2xl w-full px-4">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-extrabold text-slate-800">Final Bill</h1>
-          <p className="text-lg text-slate-500 mt-2">Order #{order.internalOrderId || order.id}</p>
+          <p className="text-lg text-slate-500 mt-2">Order #{order.internalOrderId}</p>
         </header>
         <main className="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
           <h2 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-4">Order Summary</h2>
           <div className="space-y-4 mb-6">
-            {order.items && order.items.map((item, index) => (
+            {order.items?.map((item, index) => (
               <div key={index} className="flex items-baseline justify-between">
                 <div>
                   <p className="font-medium text-slate-700">{item.dishName}</p>
                   <p className="text-sm text-slate-500">Qty: {item.quantity}</p>
                 </div>
-                <p className="text-slate-800 font-medium">
-                  {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.price * item.quantity)}
-                </p>
+                <p className="text-slate-800 font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.lineItemTotal)}</p>
               </div>
             ))}
           </div>
           <div className="border-t-2 border-dashed border-gray-200 mt-6 pt-6">
             <div className="flex justify-between items-center text-lg font-semibold text-slate-800 mb-6">
               <span>Total Amount</span>
-              <span className="text-2xl font-bold text-indigo-700">
-                {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(order.totalPrice)}
-              </span>
+              <span className="text-2xl font-bold text-indigo-700">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(order.totalPrice)}</span>
             </div>
             {!offlineConfirmed ? (
               <div className="space-y-3">
@@ -221,8 +232,8 @@ function FinalBillPage() {
                 {paymentError && <p className="mt-4 text-sm text-center text-red-600">{paymentError}</p>}
               </div>
             ) : (
-              <div className="mt-8 text-center">
-                <span className="inline-block px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold text-lg">Confirmation Received! Please show this screen or provide Order ID #{order.internalOrderId || order.id} at the counter to complete your payment.</span>
+              <div className="mt-8 text-center p-4 bg-blue-50 rounded-lg">
+                <span className="text-blue-800 font-semibold text-lg">Confirmation Received! Please show this screen or provide Order ID #{order.internalOrderId} at the counter to complete your payment.</span>
               </div>
             )}
           </div>

@@ -112,6 +112,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/tables/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/tables/{tableId}").hasRole("ADMIN") // For deleting a whole table
 
+
+
+                         // websocket endpoint
+                        .requestMatchers("/ws/**").permitAll()
+
+
                         // --- CATCH-ALL: Any other request must be authenticated ---
                         .anyRequest().authenticated()
                 )
