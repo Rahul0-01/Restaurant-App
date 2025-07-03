@@ -16,13 +16,13 @@ public class Dish {
     @Column(nullable = false, length = 150) // Dish name is required
     private String name;
 
-    @Column(length = 500) // Longer description allowed, optional
+    @Column(columnDefinition = "TEXT") // Longer description allowed, optional
     private String description;
 
     @Column(nullable = false, precision = 10, scale = 2) // Price is required, use precision/scale for currency
     private BigDecimal price; // Use BigDecimal for money to avoid floating-point errors
 
-    @Column(name = "image_url", length = 1024) // Optional: specify column name and length
+    @Column(name = "image_url",columnDefinition = "TEXT") // Optional: specify column name and length
     private String imageUrl;
 
     @Column(nullable = false) // Must know if it's available or not

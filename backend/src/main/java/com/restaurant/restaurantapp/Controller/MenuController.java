@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -30,6 +31,7 @@ public class MenuController {
     // --- Category Endpoints ---
 
     @GetMapping("/categories")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Page<CategoryDTO>> getAllCategories(Pageable pageable) {
         log.info("GET /api/menu/categories with pagination: {}", pageable);
         // 3. Call the updated service method, passing Pageable
@@ -73,6 +75,7 @@ public class MenuController {
 
     // Get all dishes, optionally filtered by category (available or all)
     @GetMapping("/dishes")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<List<DishDTO>> getDishes(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false, defaultValue = "true") boolean availableOnly) {
